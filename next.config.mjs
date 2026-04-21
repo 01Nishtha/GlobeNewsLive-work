@@ -2,7 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    serverActions: { bodySizeLimit: '2mb' }
+    serverActions: { bodySizeLimit: '2mb' },
+    turbo: { root: process.cwd() }
   },
   // Prevent aggressive caching of HTML pages
   async headers() {

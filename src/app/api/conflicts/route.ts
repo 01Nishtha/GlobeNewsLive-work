@@ -25,6 +25,7 @@ async function fetchGDELTEvents(): Promise<ConflictEvent[]> {
     const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${query}&mode=ArtList&maxrecords=50&format=json&sort=DateDesc`;
     
     const res = await fetch(url, { 
+      signal: (AbortSignal as any).timeout?.(5000) || undefined,
       headers: { 'User-Agent': 'GlobeNews-Live/2.0' },
       next: { revalidate: 300 }
     });

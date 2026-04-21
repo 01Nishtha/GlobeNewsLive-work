@@ -1,0 +1,19 @@
+{
+  "name": "GlobeNews Live",
+  "short_name": "GlobeNews",
+  "description": "Real-time global conflict intelligence dashboard",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#00ff88",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["news", "utilities"]
+}

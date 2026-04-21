@@ -90,6 +90,7 @@ import TwitterFeed from "./TwitterFeed";
 import HotspotStreams from "./HotspotStreams";
 import AttackTimeline from "./AttackTimeline";
 import AIInsights from "./AIInsights";
+import SituationBrief from "./SituationBrief";
 import MarketTicker from "./MarketTicker";
 import MultiPredictions from "./MultiPredictions";
 import CountryRiskPanel from "./CountryRiskPanel";
@@ -128,6 +129,16 @@ import TradePolicyPanel from "./TradePolicyPanel";
 import IntelligenceGapBadge from "./IntelligenceGapBadge";
 import SignalModalPanel from "./SignalModalPanel";
 import CountryTimelinePanel from "./CountryTimelinePanel";
+import FeedPipelineMonitor from "./FeedPipelineMonitor";
+import EventObservations from "./EventObservations";
+import RawDataInspector from "./RawDataInspector";
+import FeedSyncStatus from "./FeedSyncStatus";
+import ActivityWaterfall from "./ActivityWaterfall";
+import MarketsTerminal from "./MarketsTerminal";
+import EventConvergencePanel from "./EventConvergencePanel";
+import MemoryRegistry from "./MemoryRegistry";
+import AgenticTradingPanel from "./AgenticTradingPanel";
+import PentagonPizzaPanel from "./PentagonPizzaPanel";
 
 import { Signal, MarketData } from "@/types";
 
@@ -175,6 +186,7 @@ const LAYOUT_PRESETS: Record<
       "risk-dashboard",
       "sentiment-meter",
       "ai-insights",
+      "situation-brief",
       "attack-timeline",
     ],
     layout: [
@@ -212,9 +224,19 @@ const LAYOUT_PRESETS: Record<
       },
       { i: "ai-insights", x: 0, y: 11, w: 1, h: 5, minW: 1, maxW: 1, minH: 3 },
       {
-        i: "attack-timeline",
+        i: "situation-brief",
         x: 1,
         y: 11,
+        w: 1,
+        h: 5,
+        minW: 1,
+        maxW: 1,
+        minH: 3,
+      },
+      {
+        i: "attack-timeline",
+        x: 0,
+        y: 16,
         w: 1,
         h: 5,
         minW: 1,
@@ -427,6 +449,7 @@ const LAYOUT_PRESETS: Record<
       "country-deep-dive",
       "economic-panel",
       "strategic-risk",
+      "pentagon-pizza",
     ],
     layout: [
       { i: "signal-feed", x: 0, y: 0, w: 1, h: 12, minW: 1, maxW: 1, minH: 6 },
@@ -527,6 +550,66 @@ const LAYOUT_PRESETS: Record<
         maxW: 1,
         minH: 8,
       },
+      {
+        i: "pentagon-pizza",
+        x: 0,
+        y: 64,
+        w: 1,
+        h: 10,
+        minW: 1,
+        maxW: 1,
+        minH: 6,
+      },
+    ],
+  },
+  "ground-station": {
+    label: "Ground Station",
+    emoji: "📡",
+    desc: "Pipeline, Waterfall, Observations, Sync, Memory — satellite monitoring style",
+    widgets: [
+      "signal-feed",
+      "feed-pipeline",
+      "activity-waterfall",
+      "event-observations",
+      "feed-sync",
+      "raw-inspector",
+      "memory-registry",
+      "world-map",
+      "risk-dashboard",
+    ],
+    layout: [
+      { i: "signal-feed", x: 0, y: 0, w: 1, h: 12, minW: 1, maxW: 1, minH: 6 },
+      { i: "feed-pipeline", x: 1, y: 0, w: 1, h: 8, minW: 1, maxW: 1, minH: 6 },
+      { i: "activity-waterfall", x: 0, y: 12, w: 1, h: 8, minW: 1, maxW: 1, minH: 6 },
+      { i: "event-observations", x: 1, y: 8, w: 1, h: 8, minW: 1, maxW: 1, minH: 6 },
+      { i: "feed-sync", x: 0, y: 20, w: 1, h: 8, minW: 1, maxW: 1, minH: 6 },
+      { i: "raw-inspector", x: 1, y: 16, w: 1, h: 8, minW: 1, maxW: 1, minH: 6 },
+      { i: "memory-registry", x: 0, y: 28, w: 1, h: 10, minW: 1, maxW: 1, minH: 6 },
+      { i: "world-map", x: 1, y: 24, w: 1, h: 6, minW: 1, maxW: 1, minH: 4 },
+      { i: "risk-dashboard", x: 1, y: 30, w: 1, h: 6, minW: 1, maxW: 1, minH: 3 },
+    ],
+  },
+  "finance-monitor": {
+    label: "Finance & Convergence",
+    emoji: "🌐",
+    desc: "Markets Terminal + Event Correlation + Agentic Trading + core intel feeds",
+    widgets: [
+      "signal-feed",
+      "markets-terminal",
+      "event-convergence",
+      "agentic-trading",
+      "risk-dashboard",
+      "world-map",
+      "strategic-risk",
+    ],
+    layout: [
+      { i: "signal-feed", x: 0, y: 0, w: 1, h: 12, minW: 1, maxW: 1, minH: 6 },
+      { i: "markets-terminal", x: 1, y: 0, w: 1, h: 14, minW: 1, maxW: 1, minH: 8 },
+      { i: "event-convergence", x: 0, y: 12, w: 1, h: 12, minW: 1, maxW: 1, minH: 8 },
+      { i: "agentic-trading", x: 1, y: 14, w: 1, h: 12, minW: 1, maxW: 1, minH: 8 },
+      { i: "risk-dashboard", x: 0, y: 24, w: 1, h: 6, minW: 1, maxW: 1, minH: 3 },
+      { i: "world-map", x: 0, y: 30, w: 1, h: 6, minW: 1, maxW: 1, minH: 4 },
+      { i: "strategic-risk", x: 1, y: 26, w: 1, h: 10, minW: 1, maxW: 1, minH: 8 },
     ],
   },
 };
@@ -539,7 +622,7 @@ const LS_SETTINGS = "globenews_settings";
 const LS_SAVED = "globenews_saved_layouts";
 const LS_CURRENT = "globenews_current_preset";
 const LS_VERSION = "globenews_version";
-const CURRENT_VERSION = "3.1.0"; // Bump this to reset layouts
+const CURRENT_VERSION = "3.5.0"; // Bumped for World Monitor UI refresh
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -811,6 +894,8 @@ export default function CustomDashboard({
         return <AttackTimeline />;
       case "ai-insights":
         return <AIInsights />;
+      case "situation-brief":
+        return <SituationBrief />;
       case "market-ticker":
         return <MarketTicker markets={markets} loading={marketsLoading} />;
       case "multi-predictions":
@@ -873,6 +958,26 @@ export default function CustomDashboard({
         return <SignalModalPanel />;
       case "country-timeline":
         return <CountryTimelinePanel />;
+      case "feed-pipeline":
+        return <FeedPipelineMonitor />;
+      case "event-observations":
+        return <EventObservations />;
+      case "raw-inspector":
+        return <RawDataInspector />;
+      case "feed-sync":
+        return <FeedSyncStatus />;
+      case "activity-waterfall":
+        return <ActivityWaterfall />;
+      case "markets-terminal":
+        return <MarketsTerminal />;
+      case "event-convergence":
+        return <EventConvergencePanel />;
+      case "memory-registry":
+        return <MemoryRegistry />;
+      case "agentic-trading":
+        return <AgenticTradingPanel />;
+      case "pentagon-pizza":
+        return <PentagonPizzaPanel />;
       default:
         return (
           <div className="flex items-center justify-center h-full text-white/20 text-xs font-mono">

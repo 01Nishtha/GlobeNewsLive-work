@@ -8,17 +8,48 @@ import { Language, t } from '@/lib/i18n';
 // ─── Theme Toggle Hook ────────────────────────────────────────────────────────
 export function useTheme() {
   const [isDark, setIsDark] = useState(true);
+  const [autoTheme, setAutoTheme] = useState(false);
 
   useEffect(() => {
     // Load saved preference
     const saved = localStorage.getItem('globenews-theme');
-    if (saved === 'light') {
+    const auto = localStorage.getItem('globenews-auto-theme') === 'true';
+    setAutoTheme(auto);
+
+    if (auto) {
+      const hour = new Date().getHours();
+      const isDaytime = hour >= 6 && hour < 18;
+      const shouldBeDark = !isDaytime;
+      setIsDark(shouldBeDark);
+      if (!shouldBeDark) document.documentElement.classList.add('light-mode');
+      else document.documentElement.classList.remove('light-mode');
+    } else if (saved === 'light') {
       setIsDark(false);
       document.documentElement.classList.add('light-mode');
     }
   }, []);
 
+  // Auto theme interval check every minute
+  useEffect(() => {
+    if (!autoTheme) return;
+    const interval = setInterval(() => {
+      const hour = new Date().getHours();
+      const isDaytime = hour >= 6 && hour < 18;
+      const shouldBeDark = !isDaytime;
+      setIsDark(prev => {
+        if (prev !== shouldBeDark) {
+          if (shouldBeDark) document.documentElement.classList.remove('light-mode');
+          else document.documentElement.classList.add('light-mode');
+        }
+        return shouldBeDark;
+      });
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [autoTheme]);
+
   const toggle = () => {
+    setAutoTheme(false);
+    localStorage.setItem('globenews-auto-theme', 'false');
     setIsDark(prev => {
       const next = !prev;
       if (next) {
@@ -32,22 +63,54 @@ export function useTheme() {
     });
   };
 
-  return { isDark, toggle };
+  const toggleAuto = () => {
+    const next = !autoTheme;
+    setAutoTheme(next);
+    localStorage.setItem('globenews-auto-theme', String(next));
+    if (next) {
+      const hour = new Date().getHours();
+      const isDaytime = hour >= 6 && hour < 18;
+      const shouldBeDark = !isDaytime;
+      setIsDark(shouldBeDark);
+      if (shouldBeDark) document.documentElement.classList.remove('light-mode');
+      else document.documentElement.classList.add('light-mode');
+      localStorage.setItem('globenews-theme', shouldBeDark ? 'dark' : 'light');
+    }
+  };
+
+  return { isDark, toggle, autoTheme, toggleAuto };
 }
 
-// ─── Theme Toggle Button ──────────────────────────────────────────────────────
-export function ThemeToggle({ isDark, onToggle }: { isDark: boolean; onToggle: () => void }) {
+// ─── Theme Toggle Button ────────────────────────────────────────────────────────
+export function ThemeToggle({ isDark, onToggle, autoTheme, onToggleAuto }: { isDark: boolean; onToggle: () => void; autoTheme?: boolean; onToggleAuto?: () => void }) {
   return (
-    <button
-      onClick={onToggle}
-      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/10 hover:border-white/25 bg-white/5 hover:bg-white/10 transition-all"
-      title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-    >
-      <span className="text-sm">{isDark ? '☀️' : '🌙'}</span>
-      <span className="text-[9px] font-mono text-white/50 hidden sm:block">
-        {isDark ? 'LIGHT' : 'DARK'}
-      </span>
-    </button>
+    <div className="flex items-center gap-1">
+      <button
+        onClick={onToggle}
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all ${
+          autoTheme 
+            ? 'border-accent-blue/40 bg-accent-blue/10 text-accent-blue' 
+            : 'border-white/10 hover:border-white/25 bg-white/5 hover:bg-white/10'
+        }`}
+        title={autoTheme ? 'Auto theme active' : (isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode')}
+      >
+        <span className="text-sm">{isDark ? '☀️' : '🌙'}</span>
+        <span className="text-[9px] font-mono text-white/50 hidden sm:block">
+          {autoTheme ? 'AUTO' : (isDark ? 'LIGHT' : 'DARK')}
+        </span>
+      </button>
+      {onToggleAuto && (
+        <button
+          onClick={onToggleAuto}
+          className={`px-1.5 py-1 rounded text-[8px] font-mono transition-colors ${
+            autoTheme ? 'text-accent-blue' : 'text-white/30 hover:text-white/60'
+          }`}
+          title="Toggle auto theme (6AM-6PM = light)"
+        >
+          A
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -69,9 +132,11 @@ interface HeaderProps {
   onLanguageChange?: (lang: Language) => void;
   isDark?: boolean;
   onThemeToggle?: () => void;
+  autoTheme?: boolean;
+  onToggleAutoTheme?: () => void;
 }
 
-export default function Header({ threatLevel, breakingNews, lastUpdate, signalCount, criticalCount, language = 'en', onLanguageChange, isDark = true, onThemeToggle }: HeaderProps) {
+export default function Header({ threatLevel, breakingNews, lastUpdate, signalCount, criticalCount, language = 'en', onLanguageChange, isDark = true, onThemeToggle, autoTheme, onToggleAutoTheme }: HeaderProps) {
   const [time, setTime] = useState(new Date());
   const [showBreaking, setShowBreaking] = useState(true);
   const [updateAgo, setUpdateAgo] = useState(0);
@@ -154,7 +219,7 @@ export default function Header({ threatLevel, breakingNews, lastUpdate, signalCo
         <div className="flex items-center gap-4">
           {/* Theme Toggle */}
           {onThemeToggle && (
-            <ThemeToggle isDark={isDark} onToggle={onThemeToggle} />
+            <ThemeToggle isDark={isDark} onToggle={onThemeToggle} autoTheme={autoTheme} onToggleAuto={onToggleAutoTheme} />
           )}
 
           {/* Language Selector */}

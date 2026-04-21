@@ -7,6 +7,7 @@ async function fetchPolymarket(): Promise<PredictionMarket[]> {
     const res = await fetch(
       'https://gamma-api.polymarket.com/events?active=true&closed=false&limit=20',
       { 
+        signal: (AbortSignal as any).timeout?.(4000) || undefined,
         next: { revalidate: 60 },
         headers: { 'Accept': 'application/json' }
       }

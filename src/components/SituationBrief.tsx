@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import useSWR from 'swr';
-import { ChevronDown, ChevronUp, AlertTriangle, Globe, Shield, TrendingUp, Clock } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertTriangle, Globe, Shield, TrendingUp, Clock, Volume2, VolumeX } from 'lucide-react';
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
@@ -40,6 +40,7 @@ const SEVERITY_COLORS = {
 
 export default function SituationBrief() {
   const [isExpanded, setIsExpanded] = useState(true);
+  const [speaking, setSpeaking] = useState(false);
   const { data, error, isLoading } = useSWR<{ brief: Brief }>('/api/brief', fetcher, {
     refreshInterval: 300000, // 5 minutes
     revalidateOnFocus: false,
@@ -47,6 +48,34 @@ export default function SituationBrief() {
 
   const brief = data?.brief;
   const colors = brief ? THREAT_COLORS[brief.threatLevel] : THREAT_COLORS.LOW;
+
+  const speakBrief = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    if (speaking) {
+      window.speechSynthesis.cancel();
+      setSpeaking(false);
+      return;
+    }
+    if (!brief) return;
+
+    const text = `
+      Situation Brief. Threat level: ${brief.threatLevel}. 
+      ${brief.headline}. 
+      ${brief.summary}. 
+      ${brief.keyDevelopments.map(d => `In ${d.region}: ${d.headline}. Severity: ${d.severity}.`).join(' ')}
+      Watch list: ${brief.watchList.join('. ')}. 
+      Market implications: ${brief.marketImplications}. 
+      Next 6 hours: ${brief.nextHours}.
+    `;
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+    setSpeaking(true);
+  };
 
   if (isLoading) {
     return (
@@ -79,9 +108,10 @@ export default function SituationBrief() {
   return (
     <div className={`glass-panel ${colors.border} border overflow-hidden`}>
       {/* Header - Always Visible */}
-      <button
+      <div
         onClick={() => setIsExpanded(!isExpanded)}
-        className={`w-full px-4 py-3 flex items-center justify-between ${colors.bg} hover:bg-white/5 transition-colors`}
+        role="button"
+        className={`w-full px-4 py-3 flex items-center justify-between ${colors.bg} hover:bg-white/5 transition-colors cursor-pointer`}
       >
         <div className="flex items-center gap-3">
           <div className={`w-8 h-8 rounded-lg ${colors.bg} border ${colors.border} flex items-center justify-center`}>
@@ -91,7 +121,7 @@ export default function SituationBrief() {
             <div className="flex items-center gap-2">
               <span className="font-mono text-[11px] font-bold text-white tracking-wider">SITUATION BRIEF</span>
               <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded ${colors.bg} ${colors.text} border ${colors.border}`}>
-                {brief.threatLevel}
+                {brief?.threatLevel || 'LOW'}
               </span>
             </div>
             <div className="text-[9px] text-text-muted flex items-center gap-2 mt-0.5">
@@ -100,12 +130,21 @@ export default function SituationBrief() {
             </div>
           </div>
         </div>
-        {isExpanded ? (
-          <ChevronUp className="w-4 h-4 text-text-dim" />
-        ) : (
-          <ChevronDown className="w-4 h-4 text-text-dim" />
-        )}
-      </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); speakBrief(); }}
+            className={`p-1.5 rounded transition-colors ${speaking ? 'bg-accent-green/20 text-accent-green animate-pulse' : 'text-text-dim hover:text-white hover:bg-white/10'}`}
+            title={speaking ? 'Stop reading' : 'Read brief aloud'}
+          >
+            {speaking ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+          </button>
+          {isExpanded ? (
+            <ChevronUp className="w-4 h-4 text-text-dim" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-text-dim" />
+          )}
+        </div>
+      </div>
 
       {/* Expandable Content */}
       {isExpanded && (

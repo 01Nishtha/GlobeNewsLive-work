@@ -429,3 +429,13 @@ body {
   --bg-panel-lm: #ffffff;
   --text-lm: #1a1a2e;
 }
+
+/* Signal Banner styles */
+.signal-banner-container {
+  position: relative;
+}
+
+@keyframes bannerPulse {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.3; }
+}

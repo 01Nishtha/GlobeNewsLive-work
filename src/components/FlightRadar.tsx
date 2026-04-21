@@ -172,9 +172,10 @@ export default function FlightRadar() {
   return (
     <div className="glass-panel overflow-hidden">
       {/* Header */}
-      <button
+      <div
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between px-3 py-2 border-b border-border-subtle bg-gradient-to-r from-cyan-500/10 to-transparent hover:bg-white/5 transition-colors"
+        role="button"
+        className="w-full flex items-center justify-between px-3 py-2 border-b border-border-subtle bg-gradient-to-r from-cyan-500/10 to-transparent hover:bg-white/5 transition-colors cursor-pointer"
       >
         <div className="flex items-center gap-2">
           <Plane className="w-4 h-4 text-cyan-400" />
@@ -242,7 +243,7 @@ export default function FlightRadar() {
             <ChevronDown className="w-4 h-4 text-text-dim" />
           )}
         </div>
-      </button>
+      </div>
 
       {isExpanded && (
         <div className="space-y-0">

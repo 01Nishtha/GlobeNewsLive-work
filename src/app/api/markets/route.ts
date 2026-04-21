@@ -6,7 +6,10 @@ async function fetchCrypto(): Promise<MarketData[]> {
   try {
     const res = await fetch(
       'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,ripple&vs_currencies=usd&include_24hr_change=true',
-      { next: { revalidate: 30 } }
+      { 
+        signal: (AbortSignal as any).timeout?.(4000) || undefined,
+        next: { revalidate: 30 } 
+      }
     );
     if (!res.ok) return [];
     const data = await res.json();

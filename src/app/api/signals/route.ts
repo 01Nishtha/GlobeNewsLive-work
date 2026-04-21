@@ -908,118 +908,100 @@ let cache: {
   timestamp: number;
   sources: { success: number; failed: number };
 } | null = null;
-const CACHE_TTL = 60 * 1000; // 1 minute
+const CACHE_TTL = 90 * 1000; // 90 seconds
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const filter = searchParams.get("filter"); // 'iran', 'israel', 'all'
-  const refresh = searchParams.get("refresh") === "true";
+const FETCH_TIMEOUT = 3500; // 3.5s max per feed
 
-  try {
-    // Return cached data if fresh (unless refresh requested)
-    if (!refresh && cache && Date.now() - cache.timestamp < CACHE_TTL) {
-      let signals = cache.signals;
-      if (filter === "iran") {
-        signals = signals.filter((s: any) => s.iranRelevance > 0);
-      }
-      return NextResponse.json({
-        signals,
-        cached: true,
-        sources: cache.sources,
+// Fetch all feeds in parallel with timeout and concurrency limit
+async function fetchAllFeeds(): Promise<{ signals: Signal[]; success: number; failed: number }> {
+  const fetchWithTimeout = async (url: string): Promise<string | null> => {
+    try {
+      const res = await fetch(url, {
+        signal: (AbortSignal as any).timeout?.(FETCH_TIMEOUT) || undefined,
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; GlobeNews-Live/2.0; +https://globenews.live)",
+          Accept: "application/rss+xml, application/xml, text/xml, application/atom+xml",
+        },
+        next: { revalidate: 60 },
       });
+      return res.ok ? await res.text() : null;
+    } catch {
+      return null;
     }
+  };
 
-    // Fetch all feeds in parallel with timeout
-    const fetchWithTimeout = async (
-      url: string,
-      timeout = 10000,
-    ): Promise<string | null> => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
-      try {
-        const res = await fetch(url, {
-          signal: controller.signal,
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (compatible; GlobeNews-Live/2.0; +https://globenews.live)",
-            Accept:
-              "application/rss+xml, application/xml, text/xml, application/atom+xml",
-          },
-          next: { revalidate: 60 },
-        });
-        clearTimeout(timeoutId);
-        return res.ok ? await res.text() : null;
-      } catch {
-        clearTimeout(timeoutId);
-        return null;
-      }
-    };
+  let successCount = 0;
+  let failCount = 0;
+  const allSignals: Signal[] = [];
 
-    let successCount = 0;
-    let failCount = 0;
-
+  // Process in chunks of 18 to avoid network stack congestion
+  const chunkSize = 18;
+  for (let i = 0; i < FEEDS.length; i += chunkSize) {
+    const chunk = FEEDS.slice(i, i + chunkSize);
     const results = await Promise.all(
-      FEEDS.map(async (feed) => {
+      chunk.map(async (feed) => {
         const xml = await fetchWithTimeout(feed.url);
         if (!xml) {
           failCount++;
           return [];
         }
         successCount++;
-        // Try RSS first, then Atom
         let items = parseRSS(xml, feed.name, feed.region);
         if (items.length === 0) {
           items = parseAtom(xml, feed.name, feed.region);
         }
         return items;
-      }),
+      })
     );
+    allSignals.push(...results.flat());
+  }
 
-    // Merge and sort
-    let allSignals = results.flat();
+  // Simple deduplication by title similarity
+  const seen = new Set<string>();
+  let uniqueSignals = allSignals.filter((s) => {
+    const key = s.title.toLowerCase().replace(/[^a-z0-9]/g, "").substring(0, 40);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 
-    // Simple deduplication by title similarity
-    const seen = new Set<string>();
-    allSignals = allSignals.filter((s) => {
-      const key = s.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, "")
-        .substring(0, 40);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+  // Sort: Iran relevance > severity > timestamp
+  const severityOrder: Record<string, number> = {
+    CRITICAL: 0,
+    HIGH: 1,
+    MEDIUM: 2,
+    LOW: 3,
+    INFO: 4,
+  };
+  uniqueSignals.sort((a: any, b: any) => {
+    if (a.iranRelevance !== b.iranRelevance) {
+      return b.iranRelevance - a.iranRelevance;
+    }
+    const severityDiff = severityOrder[a.severity] - severityOrder[b.severity];
+    if (severityDiff !== 0) return severityDiff;
+    return b.timestamp.getTime() - a.timestamp.getTime();
+  });
 
-    // Sort: Iran relevance > severity > timestamp
-    const severityOrder: Record<string, number> = {
-      CRITICAL: 0,
-      HIGH: 1,
-      MEDIUM: 2,
-      LOW: 3,
-      INFO: 4,
-    };
-    allSignals.sort((a: any, b: any) => {
-      // Iran-related first
-      if (a.iranRelevance !== b.iranRelevance) {
-        return b.iranRelevance - a.iranRelevance;
+  return { signals: uniqueSignals.slice(0, 100), success: successCount, failed: failCount };
+}
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const filter = searchParams.get("filter");
+  const refresh = searchParams.get("refresh") === "true";
+
+  try {
+    if (!refresh && cache && Date.now() - cache.timestamp < CACHE_TTL) {
+      let signals = cache.signals;
+      if (filter === "iran") {
+        signals = signals.filter((s: any) => s.iranRelevance > 0);
       }
-      // Then by severity
-      const severityDiff =
-        severityOrder[a.severity] - severityOrder[b.severity];
-      if (severityDiff !== 0) return severityDiff;
-      // Then by recency
-      return b.timestamp.getTime() - a.timestamp.getTime();
-    });
+      return NextResponse.json({ signals, cached: true, sources: cache.sources });
+    }
 
-    // Limit to top 100
-    const signals = allSignals.slice(0, 100);
+    const { signals, success, failed } = await fetchAllFeeds();
 
-    // Update cache
-    cache = {
-      signals,
-      timestamp: Date.now(),
-      sources: { success: successCount, failed: failCount },
-    };
+    cache = { signals, timestamp: Date.now(), sources: { success, failed } };
 
     let filteredSignals = signals;
     if (filter === "iran") {
@@ -1029,18 +1011,11 @@ export async function GET(request: Request) {
     return NextResponse.json({
       signals: filteredSignals,
       cached: false,
-      sources: {
-        success: successCount,
-        failed: failCount,
-        total: FEEDS.length,
-      },
+      sources: { success, failed, total: FEEDS.length },
       iranRelated: signals.filter((s: any) => s.iranRelevance > 0).length,
     });
   } catch (error) {
     console.error("Signals API error:", error);
-    return NextResponse.json(
-      { signals: [], error: "Failed to fetch signals" },
-      { status: 500 },
-    );
+    return NextResponse.json({ signals: [], error: "Failed to fetch signals" }, { status: 500 });
   }
 }

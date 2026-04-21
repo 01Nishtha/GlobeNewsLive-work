@@ -27,7 +27,6 @@ import FlightRadar from '@/components/FlightRadar';
 import SearchBar from '@/components/SearchBar';
 import CyberFeed from '@/components/CyberFeed';
 import HotspotStreams from '@/components/HotspotStreams';
-import CustomDashboard from '@/components/CustomDashboard';
 import MapStreams from '@/components/MapStreams';
 import RiskDashboard from '@/components/RiskDashboard';
 import SentimentMeter from '@/components/SentimentMeter';
@@ -35,6 +34,20 @@ import { useLanguage } from '@/components/LanguageSelector';
 import CommandPalette from '@/components/CommandPalette';
 import BreakingNewsBanner from '@/components/BreakingNewsBanner';
 import TVMode from '@/components/TVMode';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
+import PushNotificationToggle from '@/components/PushNotificationToggle';
+import MultiStreamLayout from '@/components/MultiStreamLayout';
+import OfflineIndicator from '@/components/OfflineIndicator';
+import PWAInstallPrompt from '@/components/PWAInstallPrompt';
+import SignalBanner from '@/components/SignalBanner';
+import GlobalSituationBar from '@/components/GlobalSituationBar';
+import TimeRangeSelector from '@/components/TimeRangeSelector';
+import RegionSelector, { REGIONS } from '@/components/RegionSelector';
+import CategoryFilterBar from '@/components/CategoryFilterBar';
+import MapControls from '@/components/MapControls';
+import MapLegend from '@/components/MapLegend';
+import LiveNewsTicker from '@/components/LiveNewsTicker';
+import EnhancedLayerPanel from '@/components/EnhancedLayerPanel';
 import { Signal, MarketData, PredictionMarket, ThreatLevel } from '@/types';
 import { getThreatLevelFromSignals } from '@/lib/classify';
 import { ACTIVE_CONFLICTS } from '@/lib/feeds';
@@ -43,6 +56,18 @@ import { ACTIVE_CONFLICTS } from '@/lib/feeds';
 const WarRoom = dynamic(() => import('@/components/WarRoom'), { 
   ssr: false,
   loading: () => <div className="h-screen flex items-center justify-center bg-void"><div className="text-accent-green animate-pulse font-mono">Loading War Room...</div></div>
+});
+
+const CustomDashboard = dynamic(() => import('@/components/CustomDashboard'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 flex items-center justify-center bg-void">
+      <div className="text-center">
+        <div className="w-10 h-10 border-2 border-accent-green/30 border-t-accent-green rounded-full animate-spin mx-auto mb-3" />
+        <div className="text-accent-green text-xs font-mono animate-pulse">Loading Dashboard...</div>
+      </div>
+    </div>
+  )
 });
 
 const fetcher = async (url: string) => {
@@ -83,6 +108,10 @@ export default function Dashboard() {
     'weather', 'displacement', 'clusters'
   ]);
   const [timeFilter, setTimeFilter] = useState('24h');
+  const [region, setRegion] = useState('global');
+  const [map3D, setMap3D] = useState(false);
+  const [mapPinned, setMapPinned] = useState(false);
+  const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [isClient, setIsClient] = useState(false);
   const [prevCriticalCount, setPrevCriticalCount] = useState(0);
@@ -90,14 +119,27 @@ export default function Dashboard() {
   const [mobileView, setMobileView] = useState<MobileView>('feed');
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [tvMode, setTvMode] = useState(false);
+  const [multiStreamOpen, setMultiStreamOpen] = useState(false);
+  
+  // Push notifications
+  const { supported: pushSupported, permission: pushPermission, requestPermission: requestPushPermission, notifyCritical } = usePushNotifications();
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [ttsSpeaking, setTtsSpeaking] = useState(false);
   
   // Multi-language support
   const { language, changeLanguage, isRTL } = useLanguage();
 
   // Theme toggle
-  const { isDark, toggle: toggleTheme } = useTheme();
+  const { isDark, toggle: toggleTheme, autoTheme, toggleAuto: toggleAutoTheme } = useTheme();
 
   useEffect(() => { setIsClient(true); }, []);
+
+  // Push notification permission state
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setPushEnabled(pushPermission === 'granted');
+    }
+  }, [pushPermission]);
 
   // Command Palette shortcut
   useEffect(() => {
@@ -147,6 +189,11 @@ export default function Dashboard() {
   const earthquakes = earthquakesData?.earthquakes || [];
   const conflicts = conflictsData?.conflicts || [];
 
+  // Filter signals by category
+  const filteredSignals = categoryFilters.length > 0
+    ? signals.filter(s => categoryFilters.some(cat => s.category?.toLowerCase().includes(cat.toLowerCase())))
+    : signals;
+
   const threatLevel: ThreatLevel = getThreatLevelFromSignals(signals);
   const breakingNews = signals.find(s => s.severity === 'CRITICAL')?.title;
 
@@ -159,121 +206,112 @@ export default function Dashboard() {
     setPrevCriticalCount(criticalCount);
   }, [criticalCount, soundEnabled, prevCriticalCount]);
 
+  // Push notifications for critical events
+  useEffect(() => {
+    if (pushEnabled && criticalCount > 0) {
+      const latestCritical = signals.find(s => s.severity === 'CRITICAL');
+      notifyCritical(criticalCount, latestCritical?.title);
+    }
+  }, [criticalCount, pushEnabled, signals, notifyCritical]);
+
   const handleLayerToggle = useCallback((layer: string) => {
     setActiveLayers(prev => prev.includes(layer) ? prev.filter(l => l !== layer) : [...prev, layer]);
+  }, []);
+
+  const handleCategoryToggle = useCallback((category: string) => {
+    setCategoryFilters(prev => prev.includes(category) ? prev.filter(c => c !== category) : [...prev, category]);
+  }, []);
+
+  const handleRegionChange = useCallback((regionId: string, regionData: typeof REGIONS[0]) => {
+    setRegion(regionId);
+  }, []);
+
+  const handleMapFullscreen = useCallback(() => {
+    const mapEl = document.getElementById('world-map-container');
+    if (mapEl) {
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else {
+        mapEl.requestFullscreen();
+      }
+    }
   }, []);
 
   const handleSignalClick = useCallback((signal: Signal) => {
     if (signal.sourceUrl) window.open(signal.sourceUrl, '_blank', 'noopener,noreferrer');
   }, []);
 
-  // Skeleton loading - show immediate value while hydrating
+  const handlePushToggle = useCallback(async () => {
+    if (!pushEnabled) {
+      const granted = await requestPushPermission();
+      setPushEnabled(granted);
+    } else {
+      setPushEnabled(false);
+    }
+  }, [pushEnabled, requestPushPermission]);
+
+  const speakBrief = useCallback(async () => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const synth = window.speechSynthesis;
+    if (synth.speaking) {
+      synth.cancel();
+      setTtsSpeaking(false);
+      return;
+    }
+    try {
+      const res = await fetch("/api/brief");
+      const data = await res.json();
+      const brief = data?.brief;
+      let text = "";
+      if (brief && typeof brief === "object") {
+        const parts: string[] = [];
+        if (brief.headline) parts.push(brief.headline);
+        if (brief.summary) parts.push(brief.summary);
+        if (Array.isArray(brief.watchList) && brief.watchList.length) {
+          parts.push("Watch list: " + brief.watchList.join(". "));
+        }
+        if (brief.marketImplications) parts.push("Market implications: " + brief.marketImplications);
+        if (brief.nextHours) parts.push("Next hours: " + brief.nextHours);
+        text = parts.join(". ");
+      } else {
+        text = data?.text || "";
+      }
+      if (!text) return;
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "en-US";
+      utterance.rate = 1;
+      utterance.pitch = 1;
+      utterance.onstart = () => setTtsSpeaking(true);
+      utterance.onend = () => setTtsSpeaking(false);
+      utterance.onerror = () => setTtsSpeaking(false);
+      synth.speak(utterance);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // System time
   if (!isClient) {
     return (
       <div className="h-screen flex flex-col bg-void overflow-hidden">
-        {/* Skeleton Header */}
         <header className="bg-elevated border-b border-border-default px-4 py-2 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-accent-green/30 to-accent-blue/20 flex items-center justify-center border border-accent-green/30">
               <span className="text-accent-green text-xl">🌐</span>
             </div>
             <div>
-              <h1 className="font-mono text-sm font-bold tracking-wider text-accent-green flex items-center gap-2">
-                GLOBENEWS
-                <span className="px-1.5 py-0.5 bg-accent-red/20 text-[8px] rounded border border-accent-red/30 text-accent-red animate-pulse">LIVE</span>
-              </h1>
+              <h1 className="font-mono text-sm font-bold tracking-wider text-accent-green">GLOBENEWS <span className="px-1.5 py-0.5 bg-accent-red/20 text-[8px] rounded border border-accent-red/30 text-accent-red animate-pulse">LIVE</span></h1>
               <p className="text-[9px] text-text-muted">Real-time global intelligence</p>
             </div>
           </div>
-          {/* Value Proposition Stats */}
-          <div className="hidden md:flex items-center gap-4">
-            <div className="text-center">
-              <div className="text-accent-red font-mono text-lg font-bold">12</div>
-              <div className="text-[8px] text-text-muted">CONFLICTS</div>
-            </div>
-            <div className="text-center">
-              <div className="text-accent-orange font-mono text-lg font-bold">54</div>
-              <div className="text-[8px] text-text-muted">SOURCES</div>
-            </div>
-            <div className="text-center">
-              <div className="text-accent-green font-mono text-lg font-bold">30s</div>
-              <div className="text-[8px] text-text-muted">REFRESH</div>
-            </div>
-          </div>
         </header>
-
-        {/* Skeleton Main - 3 Panel Layout */}
-        <main className="flex-1 flex overflow-hidden">
-          {/* Left Panel - News Feed Skeleton */}
-          <aside className="hidden lg:block w-[340px] border-r border-border-default p-2 space-y-2">
-            <div className="px-3 py-2 bg-elevated rounded border border-border-subtle">
-              <div className="text-[11px] font-mono text-accent-red font-bold">📡 LIVE INTEL FEED</div>
-            </div>
-            {[1,2,3,4,5].map(i => (
-              <div key={i} className="p-3 bg-elevated/50 rounded border border-border-subtle animate-pulse">
-                <div className="h-3 bg-white/10 rounded w-3/4 mb-2" />
-                <div className="h-2 bg-white/5 rounded w-full mb-1" />
-                <div className="h-2 bg-white/5 rounded w-2/3" />
-              </div>
-            ))}
-          </aside>
-
-          {/* Center - Map Skeleton */}
-          <section className="flex-1 relative">
-            <div className="absolute inset-0 bg-[#0a1628]">
-              {/* Map placeholder with grid */}
-              <div className="absolute inset-0 opacity-20" style={{
-                backgroundImage: 'linear-gradient(rgba(0,255,136,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,136,0.1) 1px, transparent 1px)',
-                backgroundSize: '50px 50px'
-              }} />
-              {/* Hotspot indicators */}
-              <div className="absolute top-1/3 left-1/3 w-4 h-4 bg-accent-red/50 rounded-full animate-ping" />
-              <div className="absolute top-1/2 left-1/2 w-4 h-4 bg-accent-orange/50 rounded-full animate-ping" style={{ animationDelay: '0.5s' }} />
-              <div className="absolute top-2/3 right-1/3 w-4 h-4 bg-accent-red/50 rounded-full animate-ping" style={{ animationDelay: '1s' }} />
-              {/* Loading indicator */}
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/60 px-4 py-2 rounded-full">
-                <div className="w-2 h-2 bg-accent-green rounded-full animate-pulse" />
-                <span className="text-[10px] text-white font-mono">Loading map data...</span>
-                <div className="w-20 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                  <div className="h-full bg-accent-green animate-[loading_1.5s_ease-in-out_infinite]" style={{ width: '60%' }} />
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Right Panel - Insights Skeleton */}
-          <aside className="hidden lg:block w-[340px] border-l border-border-default p-2 space-y-2 overflow-y-auto">
-            <div className="p-3 bg-elevated rounded border border-accent-red/30">
-              <div className="text-[10px] font-mono text-accent-red font-bold mb-2">⚠️ THREAT LEVEL</div>
-              <div className="h-8 bg-accent-red/20 rounded animate-pulse" />
-            </div>
-            <div className="p-3 bg-elevated rounded border border-border-subtle">
-              <div className="text-[10px] font-mono text-accent-green font-bold mb-2">📺 LIVE STREAMS</div>
-              <div className="grid grid-cols-2 gap-1">
-                {[1,2,3,4].map(i => (
-                  <div key={i} className="aspect-video bg-white/5 rounded animate-pulse" />
-                ))}
-              </div>
-            </div>
-            <div className="p-3 bg-elevated rounded border border-border-subtle">
-              <div className="text-[10px] font-mono text-accent-blue font-bold mb-2">🧠 AI INSIGHTS</div>
-              <div className="space-y-2">
-                <div className="h-2 bg-white/10 rounded w-full" />
-                <div className="h-2 bg-white/5 rounded w-3/4" />
-              </div>
-            </div>
-          </aside>
-        </main>
-
-        {/* Skeleton Footer */}
-        <footer className="bg-elevated border-t border-border-default px-4 py-1.5 hidden lg:flex items-center justify-between">
-          <div className="flex items-center gap-4 text-[9px] text-text-muted">
-            <span>🔴 12 Active Conflicts</span>
-            <span>🟡 8 Economic Alerts</span>
-            <span>⚡ 4 Military Movements</span>
+        <main className="flex-1 flex items-center justify-center bg-void">
+          <div className="text-center">
+            <div className="w-12 h-12 border-2 border-accent-green/30 border-t-accent-green rounded-full animate-spin mx-auto mb-4" />
+            <div className="text-accent-green text-sm font-mono animate-pulse">Initializing GlobeNews Live...</div>
+            <div className="text-text-muted text-[10px] mt-2 font-mono">Loading 60+ intelligence sources</div>
           </div>
-          <div className="text-[9px] text-text-dim font-mono">Powered by 54+ intelligence sources</div>
-        </footer>
+        </main>
       </div>
     );
   }
@@ -327,6 +365,9 @@ export default function Dashboard() {
       {/* TV Mode */}
       <TVMode isActive={tvMode} onExit={() => setTvMode(false)} />
 
+      {/* Global Signal Banner */}
+      <SignalBanner />
+
       {/* Breaking News Banner */}
       <BreakingNewsBanner signals={signals} />
 
@@ -351,8 +392,24 @@ export default function Dashboard() {
           >
             📺 TV MODE
           </button>
+          <button
+            onClick={() => setMultiStreamOpen(true)}
+            className="px-3 py-1 rounded text-[10px] font-mono text-text-dim hover:text-white hover:bg-white/5"
+          >
+            🎥 MULTI-STREAM
+          </button>
         </div>
         <div className="flex items-center gap-3">
+          <RegionSelector selected={region} onChange={handleRegionChange} />
+          <TimeRangeSelector selected={timeFilter} onChange={setTimeFilter} />
+          <EnhancedLayerPanel activeLayers={activeLayers} onLayerToggle={handleLayerToggle} />
+          <MapControls
+            is3D={map3D}
+            onToggle3D={() => setMap3D(!map3D)}
+            onFullscreen={handleMapFullscreen}
+            onPinToTop={() => setMapPinned(!mapPinned)}
+            isPinned={mapPinned}
+          />
           <button
             onClick={() => setCommandPaletteOpen(true)}
             className="flex items-center gap-2 px-3 py-1 rounded text-[10px] font-mono text-text-dim hover:text-white border border-border-subtle hover:border-accent-green/30 transition-colors"
@@ -362,6 +419,18 @@ export default function Dashboard() {
           </button>
           <SearchBar signals={signals} />
           <span className="text-[9px] text-text-dim font-mono hidden xl:inline">{signals.length} signals</span>
+          <PushNotificationToggle 
+            enabled={pushEnabled} 
+            onToggle={handlePushToggle} 
+            supported={pushSupported} 
+          />
+          <button
+            onClick={speakBrief}
+            title="Read brief aloud"
+            className={`flex items-center gap-1.5 px-2 py-1 rounded text-[9px] font-mono ${ttsSpeaking ? 'bg-accent-orange/20 text-accent-orange animate-pulse' : 'bg-elevated text-text-dim hover:text-white'}`}
+          >
+            {ttsSpeaking ? '🔊 SPEAKING' : '🔊 READ BRIEF'}
+          </button>
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}
             className={`flex items-center gap-1.5 px-2 py-1 rounded text-[9px] font-mono ${soundEnabled ? 'bg-accent-green/20 text-accent-green' : 'bg-elevated text-text-dim'}`}
@@ -369,6 +438,11 @@ export default function Dashboard() {
             {soundEnabled ? '🔔' : '🔕'} ALERTS
           </button>
         </div>
+      </div>
+
+      {/* Global Situation Bar */}
+      <div className="hidden lg:block">
+        <GlobalSituationBar />
       </div>
 
       <Header 
@@ -381,12 +455,29 @@ export default function Dashboard() {
         onLanguageChange={changeLanguage}
         isDark={isDark}
         onThemeToggle={toggleTheme}
+        autoTheme={autoTheme}
+        onToggleAutoTheme={toggleAutoTheme}
       />
+
+      {/* Category Filter Bar */}
+      <div className="hidden lg:flex bg-[#0a0a0f] border-b border-white/5 px-4 py-2 items-center justify-between">
+        <CategoryFilterBar
+          selected={categoryFilters}
+          onToggle={handleCategoryToggle}
+        />
+        <MapLegend compact />
+      </div>
+
+      {/* Offline Indicator */}
+      <OfflineIndicator />
+
+      {/* Multi-Stream Layout Overlay */}
+      {multiStreamOpen && <MultiStreamLayout onClose={() => setMultiStreamOpen(false)} />}
 
       {/* Desktop Layout — Custom Dashboard with drag-and-drop */}
       <div className="hidden lg:flex flex-1 overflow-hidden">
         <CustomDashboard
-          signals={signals}
+          signals={filteredSignals}
           markets={markets}
           earthquakes={earthquakes}
           conflicts={conflicts}
@@ -438,8 +529,12 @@ export default function Dashboard() {
       <MobileNav activeView={mobileView} onViewChange={setMobileView} criticalCount={criticalCount} />
 
       <div className="hidden lg:block">
+        <LiveNewsTicker signals={signals} />
         <StatsBar activeConflicts={ACTIVE_CONFLICTS.length} militaryAlerts={militaryCount} highSeverity={highCount} criticalSeverity={criticalCount} timeFilter={timeFilter} onTimeFilterChange={setTimeFilter} />
       </div>
+
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt />
     </div>
   );
 }

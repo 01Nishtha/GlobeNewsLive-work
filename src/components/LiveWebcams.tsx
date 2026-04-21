@@ -164,9 +164,10 @@ export default function LiveWebcams() {
 
       <div className="glass-panel overflow-hidden">
         {/* Header */}
-        <button
+        <div
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full px-3 py-2 border-b border-border-subtle bg-panel/50 flex items-center justify-between hover:bg-white/5 transition-colors"
+          role="button"
+          className="w-full px-3 py-2 border-b border-border-subtle bg-panel/50 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-2">
             <Camera className="w-4 h-4 text-accent-green" />
@@ -184,7 +185,7 @@ export default function LiveWebcams() {
             </button>
             {isExpanded ? <ChevronUp className="w-4 h-4 text-text-dim" /> : <ChevronDown className="w-4 h-4 text-text-dim" />}
           </div>
-        </button>
+        </div>
 
         {isExpanded && (
           <>

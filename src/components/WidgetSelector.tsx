@@ -365,10 +365,17 @@ export const WIDGET_REGISTRY: Omit<WidgetConfig, 'visible'>[] = [
   },
   {
     id: 'pentagon-pizza',
-    name: 'Pentagon Pizza Index',
+    name: 'Pentagon Pizza',
     icon: '🍕',
-    description: 'Unusual activity indicator based on late-night pizza order patterns near the Pentagon',
-    defaultSize: { w: 2, h: 10 },
+    description: 'DoD contracting intel & procurement opportunities',
+    defaultSize: { w: 3, h: 8 },
+  },
+  {
+    id: 'weather-alerts',
+    name: 'Weather Alerts',
+    icon: '⚡',
+    description: 'Real-time severe weather warnings & alerts',
+    defaultSize: { w: 3, h: 8 },
   },
 ];
 

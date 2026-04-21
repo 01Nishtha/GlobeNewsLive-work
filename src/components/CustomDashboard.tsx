@@ -139,6 +139,7 @@ import EventConvergencePanel from "./EventConvergencePanel";
 import MemoryRegistry from "./MemoryRegistry";
 import AgenticTradingPanel from "./AgenticTradingPanel";
 import PentagonPizzaPanel from "./PentagonPizzaPanel";
+import { WeatherAlerts } from "./WeatherAlerts";
 
 import { Signal, MarketData } from "@/types";
 
@@ -978,6 +979,8 @@ export default function CustomDashboard({
         return <AgenticTradingPanel />;
       case "pentagon-pizza":
         return <PentagonPizzaPanel />;
+      case "weather-alerts":
+        return <WeatherAlerts />;
       default:
         return (
           <div className="flex items-center justify-center h-full text-white/20 text-xs font-mono">

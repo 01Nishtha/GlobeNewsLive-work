@@ -140,6 +140,11 @@ import MemoryRegistry from "./MemoryRegistry";
 import AgenticTradingPanel from "./AgenticTradingPanel";
 import PentagonPizzaPanel from "./PentagonPizzaPanel";
 import { WeatherAlerts } from "./WeatherAlerts";
+import ShipTracker from "./ShipTracker";
+import OutageMonitor from "./OutageMonitor";
+import CorrelationSignalsPanel from "./CorrelationSignalsPanel";
+import FlightTracker from "./FlightTracker";
+import Globe3D from "./Globe3D";
 
 import { Signal, MarketData } from "@/types";
 
@@ -613,9 +618,36 @@ const LAYOUT_PRESETS: Record<
       { i: "strategic-risk", x: 1, y: 26, w: 1, h: 10, minW: 1, maxW: 1, minH: 8 },
     ],
   },
+  "strategic-monitor": {
+    label: "Strategic Monitor",
+    emoji: "🗺️",
+    desc: "Ships + Outages + Flights + Correlations + 3D Globe — full situational awareness",
+    widgets: [
+      "signal-feed",
+      "ship-tracker",
+      "flight-tracker",
+      "outage-monitor",
+      "correlation-signals",
+      "world-map",
+      "globe-3d",
+      "risk-dashboard",
+      "military-tracker",
+    ],
+    layout: [
+      { i: "signal-feed", x: 0, y: 0, w: 1, h: 12, minW: 1, maxW: 1, minH: 6 },
+      { i: "ship-tracker", x: 1, y: 0, w: 1, h: 12, minW: 1, maxW: 1, minH: 6 },
+      { i: "flight-tracker", x: 0, y: 12, w: 1, h: 12, minW: 1, maxW: 1, minH: 6 },
+      { i: "outage-monitor", x: 1, y: 12, w: 1, h: 10, minW: 1, maxW: 1, minH: 6 },
+      { i: "correlation-signals", x: 0, y: 24, w: 1, h: 10, minW: 1, maxW: 1, minH: 6 },
+      { i: "world-map", x: 1, y: 22, w: 1, h: 8, minW: 1, maxW: 1, minH: 4 },
+      { i: "globe-3d", x: 0, y: 34, w: 1, h: 10, minW: 1, maxW: 1, minH: 6 },
+      { i: "risk-dashboard", x: 1, y: 30, w: 1, h: 6, minW: 1, maxW: 1, minH: 3 },
+      { i: "military-tracker", x: 1, y: 36, w: 1, h: 8, minW: 1, maxW: 1, minH: 4 },
+    ],
+  },
 };
 
-// ─── LocalStorage Keys ────────────────────────────────────────────────────────
+// ─── LocalStorage Keys ─────────────────────────────────────────────────────────────────────────
 
 const LS_LAYOUT = "globenews_layout";
 const LS_VISIBLE = "globenews_visible";
@@ -623,7 +655,7 @@ const LS_SETTINGS = "globenews_settings";
 const LS_SAVED = "globenews_saved_layouts";
 const LS_CURRENT = "globenews_current_preset";
 const LS_VERSION = "globenews_version";
-const CURRENT_VERSION = "3.5.0"; // Bumped for World Monitor UI refresh
+const CURRENT_VERSION = "3.6.0"; // Bumped for Ship Tracker, Outage Monitor, AI Correlations
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -981,6 +1013,20 @@ export default function CustomDashboard({
         return <PentagonPizzaPanel />;
       case "weather-alerts":
         return <WeatherAlerts />;
+      case "ship-tracker":
+        return <ShipTracker />;
+      case "outage-monitor":
+        return <OutageMonitor />;
+      case "correlation-signals":
+        return <CorrelationSignalsPanel />;
+      case "flight-tracker":
+        return <FlightTracker />;
+      case "globe-3d":
+        return (
+          <div className="h-full min-h-[300px]">
+            <Globe3D signals={signals} autoRotate />
+          </div>
+        );
       default:
         return (
           <div className="flex items-center justify-center h-full text-white/20 text-xs font-mono">

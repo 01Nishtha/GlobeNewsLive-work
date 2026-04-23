@@ -486,13 +486,15 @@ export default function Dashboard() {
           activeLayers={activeLayers}
           onLayerToggle={handleLayerToggle}
           onSignalClick={handleSignalClick}
+          is3D={map3D}
+          mapPinned={mapPinned}
         />
       </div>
 
       {/* Mobile Layout */}
       <main className="lg:hidden flex-1 overflow-hidden pb-16">
         {mobileView === 'feed' && <SignalFeed signals={signals} loading={signalsLoading || signalsValidating} onSignalClick={handleSignalClick} />}
-        {mobileView === 'map' && <div className="h-full p-2"><WorldMap signals={signals} activeLayers={activeLayers} onLayerToggle={handleLayerToggle} earthquakes={earthquakes} /></div>}
+        {mobileView === 'map' && <div id="world-map-container" className="h-full p-2"><WorldMap signals={signals} activeLayers={activeLayers} onLayerToggle={handleLayerToggle} earthquakes={earthquakes} /></div>}
         {mobileView === 'markets' && (
           <div className="h-full overflow-y-auto p-2 space-y-2">
             <SituationBrief />

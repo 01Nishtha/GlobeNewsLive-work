@@ -131,7 +131,6 @@ import SignalModalPanel from "./SignalModalPanel";
 import CountryTimelinePanel from "./CountryTimelinePanel";
 import FeedPipelineMonitor from "./FeedPipelineMonitor";
 import EventObservations from "./EventObservations";
-import RawDataInspector from "./RawDataInspector";
 import FeedSyncStatus from "./FeedSyncStatus";
 import ActivityWaterfall from "./ActivityWaterfall";
 import MarketsTerminal from "./MarketsTerminal";
@@ -167,6 +166,8 @@ interface CustomDashboardProps {
   activeLayers: string[];
   onLayerToggle: (layer: string) => void;
   onSignalClick: (signal: Signal) => void;
+  is3D?: boolean;
+  mapPinned?: boolean;
 }
 
 // ─── Layout Presets ───────────────────────────────────────────────────────────
@@ -191,6 +192,7 @@ const LAYOUT_PRESETS: Record<
       "hotspot-streams",
       "risk-dashboard",
       "sentiment-meter",
+      "feed-pipeline",
       "ai-insights",
       "situation-brief",
       "attack-timeline",
@@ -228,11 +230,12 @@ const LAYOUT_PRESETS: Record<
         maxW: 1,
         minH: 3,
       },
-      { i: "ai-insights", x: 0, y: 11, w: 1, h: 5, minW: 1, maxW: 1, minH: 3 },
+      { i: "feed-pipeline", x: 0, y: 11, w: 2, h: 6, minW: 1, maxW: 2, minH: 4 },
+      { i: "ai-insights", x: 0, y: 17, w: 1, h: 5, minW: 1, maxW: 1, minH: 3 },
       {
         i: "situation-brief",
         x: 1,
-        y: 11,
+        y: 17,
         w: 1,
         h: 5,
         minW: 1,
@@ -242,7 +245,7 @@ const LAYOUT_PRESETS: Record<
       {
         i: "attack-timeline",
         x: 0,
-        y: 16,
+        y: 22,
         w: 1,
         h: 5,
         minW: 1,
@@ -298,6 +301,7 @@ const LAYOUT_PRESETS: Record<
     desc: "Map + Country panels + Local news",
     widgets: [
       "world-map",
+      "globe-3d",
       "country-risk",
       "signal-feed",
       "attack-timeline",
@@ -307,7 +311,8 @@ const LAYOUT_PRESETS: Record<
     layout: [
       { i: "signal-feed", x: 0, y: 0, w: 1, h: 12, minW: 1, maxW: 1, minH: 6 },
       { i: "world-map", x: 0, y: 0, w: 1, h: 8, minW: 1, maxW: 1, minH: 5 },
-      { i: "country-risk", x: 1, y: 0, w: 1, h: 6, minW: 1, maxW: 1, minH: 4 },
+      { i: "globe-3d", x: 1, y: 0, w: 1, h: 8, minW: 1, maxW: 1, minH: 5 },
+      { i: "country-risk", x: 1, y: 8, w: 1, h: 6, minW: 1, maxW: 1, minH: 4 },
       {
         i: "attack-timeline",
         x: 0,
@@ -578,7 +583,6 @@ const LAYOUT_PRESETS: Record<
       "activity-waterfall",
       "event-observations",
       "feed-sync",
-      "raw-inspector",
       "memory-registry",
       "world-map",
       "risk-dashboard",
@@ -589,7 +593,6 @@ const LAYOUT_PRESETS: Record<
       { i: "activity-waterfall", x: 0, y: 12, w: 1, h: 8, minW: 1, maxW: 1, minH: 6 },
       { i: "event-observations", x: 1, y: 8, w: 1, h: 8, minW: 1, maxW: 1, minH: 6 },
       { i: "feed-sync", x: 0, y: 20, w: 1, h: 8, minW: 1, maxW: 1, minH: 6 },
-      { i: "raw-inspector", x: 1, y: 16, w: 1, h: 8, minW: 1, maxW: 1, minH: 6 },
       { i: "memory-registry", x: 0, y: 28, w: 1, h: 10, minW: 1, maxW: 1, minH: 6 },
       { i: "world-map", x: 1, y: 24, w: 1, h: 6, minW: 1, maxW: 1, minH: 4 },
       { i: "risk-dashboard", x: 1, y: 30, w: 1, h: 6, minW: 1, maxW: 1, minH: 3 },
@@ -655,7 +658,7 @@ const LS_SETTINGS = "globenews_settings";
 const LS_SAVED = "globenews_saved_layouts";
 const LS_CURRENT = "globenews_current_preset";
 const LS_VERSION = "globenews_version";
-const CURRENT_VERSION = "3.6.0"; // Bumped for Ship Tracker, Outage Monitor, AI Correlations
+const CURRENT_VERSION = "3.7.1"; // Removed RawDataInspector widget
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -669,6 +672,8 @@ export default function CustomDashboard({
   activeLayers,
   onLayerToggle,
   onSignalClick,
+  is3D = false,
+  mapPinned = false,
 }: CustomDashboardProps) {
   const [layout, setLayout] = useState<Layout[]>(
     LAYOUT_PRESETS["intelligence-analyst"].layout,
@@ -901,7 +906,9 @@ export default function CustomDashboard({
           />
         );
       case "world-map":
-        return (
+        return is3D ? (
+          <Globe3D signals={signals} autoRotate />
+        ) : (
           <WorldMap
             signals={signals}
             activeLayers={activeLayers}
@@ -995,8 +1002,6 @@ export default function CustomDashboard({
         return <FeedPipelineMonitor />;
       case "event-observations":
         return <EventObservations />;
-      case "raw-inspector":
-        return <RawDataInspector />;
       case "feed-sync":
         return <FeedSyncStatus />;
       case "activity-waterfall":
@@ -1067,8 +1072,16 @@ export default function CustomDashboard({
 
   // Separate signal-feed from other widgets
   const showSignalFeed = visibleWidgets.includes("signal-feed");
-  const otherVisibleWidgets = visibleWidgets.filter((w) => w !== "signal-feed");
+  let otherVisibleWidgets = visibleWidgets.filter((w) => w !== "signal-feed");
   const otherActiveLayout = layout.filter((l) => l.i !== "signal-feed");
+
+  // Pin world-map to top when requested
+  if (mapPinned && otherVisibleWidgets.includes("world-map")) {
+    otherVisibleWidgets = [
+      "world-map",
+      ...otherVisibleWidgets.filter((w) => w !== "world-map"),
+    ];
+  }
 
   return (
     <DashboardErrorBoundary>
@@ -1427,17 +1440,24 @@ export default function CustomDashboard({
               >
                 {otherVisibleWidgets.map((widgetId) => {
                   const meta = getWidgetMeta(widgetId);
+                  const isWorldMap = widgetId === "world-map";
                   return (
                     <div
                       key={widgetId}
-                      className="widget-panel flex flex-col rounded-lg overflow-hidden border group"
+                      id={isWorldMap ? "world-map-container" : undefined}
+                      className={`widget-panel flex flex-col rounded-lg overflow-hidden border group ${isWorldMap && mapPinned ? "pinned-map" : ""}`}
                       style={{
                         background:
                           settings.theme === "light" ? "#ffffff" : "#0f1218",
-                        borderColor: "rgba(255,255,255,0.07)",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                        borderColor: isWorldMap && mapPinned
+                          ? "rgba(0,255,136,0.3)"
+                          : "rgba(255,255,255,0.07)",
+                        boxShadow: isWorldMap && mapPinned
+                          ? "0 0 16px rgba(0,255,136,0.15), 0 2px 8px rgba(0,0,0,0.3)"
+                          : "0 2px 8px rgba(0,0,0,0.3)",
                         transition: "border-color 0.2s, box-shadow 0.2s",
-                        minHeight: "400px",
+                        minHeight: isWorldMap && mapPinned ? "600px" : "400px",
+                        gridColumn: isWorldMap && mapPinned ? "1 / -1" : undefined,
                       }}
                     >
                       {/* Widget Header */}

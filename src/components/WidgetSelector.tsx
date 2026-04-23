@@ -28,6 +28,13 @@ export const WIDGET_REGISTRY: Omit<WidgetConfig, 'visible'>[] = [
     defaultSize: { w: 6, h: 10 },
   },
   {
+    id: 'globe-3d',
+    name: '3D Globe',
+    icon: '🌍',
+    description: 'Interactive 3D globe with flight tracking, conflicts, and signals',
+    defaultSize: { w: 6, h: 10 },
+  },
+  {
     id: 'risk-dashboard',
     name: 'Risk Dashboard',
     icon: '⚠️',
@@ -313,13 +320,6 @@ export const WIDGET_REGISTRY: Omit<WidgetConfig, 'visible'>[] = [
     icon: '👁️',
     description: 'Scheduled observation tasks, upcoming satellite passes, and automated check status',
     defaultSize: { w: 3, h: 12 },
-  },
-  {
-    id: 'raw-inspector',
-    name: 'Raw Data Inspector',
-    icon: '🔧',
-    description: 'Hex/ASCII packet inspector for debugging API responses and feed payloads',
-    defaultSize: { w: 4, h: 10 },
   },
   {
     id: 'feed-sync',

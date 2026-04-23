@@ -907,7 +907,7 @@ export default function CustomDashboard({
         );
       case "world-map":
         return is3D ? (
-          <Globe3D signals={signals} autoRotate />
+          <Globe3D autoRotate />
         ) : (
           <WorldMap
             signals={signals}
@@ -1029,7 +1029,7 @@ export default function CustomDashboard({
       case "globe-3d":
         return (
           <div className="h-full min-h-[300px]">
-            <Globe3D signals={signals} autoRotate />
+            <Globe3D autoRotate />
           </div>
         );
       default:
@@ -1528,7 +1528,7 @@ export default function CustomDashboard({
             )}
           </div>
         </div>
-        {/* ── Widget Selector Panel ─────────────────────────────────────── */}
+        {/* ── Widget Selector Panel ────────────────────────────────── */}
         <WidgetSelector
           isOpen={showWidgetSelector}
           onClose={() => setShowWidgetSelector(false)}

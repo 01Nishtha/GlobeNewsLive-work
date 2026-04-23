@@ -180,7 +180,7 @@ export default function WarRoom({ signals, conflicts = [] }: WarRoomProps) {
 
         {/* Center - 3D Globe */}
         <section className="flex-1 overflow-hidden">
-          <Globe3D signals={signals} autoRotate={activeTheater === 'global'} />
+          <Globe3D autoRotate={activeTheater === 'global'} />
         </section>
 
         {/* Right Panel - Active Conflicts Summary */}

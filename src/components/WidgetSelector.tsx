@@ -28,13 +28,6 @@ export const WIDGET_REGISTRY: Omit<WidgetConfig, 'visible'>[] = [
     defaultSize: { w: 6, h: 10 },
   },
   {
-    id: 'globe-3d',
-    name: '3D Globe',
-    icon: '🌍',
-    description: 'Interactive 3D globe with flight tracking, conflicts, and signals',
-    defaultSize: { w: 6, h: 10 },
-  },
-  {
     id: 'risk-dashboard',
     name: 'Risk Dashboard',
     icon: '⚠️',
@@ -404,13 +397,6 @@ export const WIDGET_REGISTRY: Omit<WidgetConfig, 'visible'>[] = [
     icon: '✈️',
     description: 'Military & ISR aircraft tracking via OpenSky Network',
     defaultSize: { w: 3, h: 12 },
-  },
-  {
-    id: 'globe-3d',
-    name: '3D Globe',
-    icon: '🌐',
-    description: 'Interactive 3D globe with conflict hotspots, military bases, and signal markers',
-    defaultSize: { w: 6, h: 12 },
   },
 ];
 

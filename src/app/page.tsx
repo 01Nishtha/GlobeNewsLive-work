@@ -109,7 +109,6 @@ export default function Dashboard() {
   ]);
   const [timeFilter, setTimeFilter] = useState('24h');
   const [region, setRegion] = useState('global');
-  const [map3D, setMap3D] = useState(false);
   const [mapPinned, setMapPinned] = useState(false);
   const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
   const [lastUpdate, setLastUpdate] = useState(new Date());
@@ -404,8 +403,6 @@ export default function Dashboard() {
           <TimeRangeSelector selected={timeFilter} onChange={setTimeFilter} />
           <EnhancedLayerPanel activeLayers={activeLayers} onLayerToggle={handleLayerToggle} />
           <MapControls
-            is3D={map3D}
-            onToggle3D={() => setMap3D(!map3D)}
             onFullscreen={handleMapFullscreen}
             onPinToTop={() => setMapPinned(!mapPinned)}
             isPinned={mapPinned}
@@ -486,7 +483,6 @@ export default function Dashboard() {
           activeLayers={activeLayers}
           onLayerToggle={handleLayerToggle}
           onSignalClick={handleSignalClick}
-          is3D={map3D}
           mapPinned={mapPinned}
         />
       </div>

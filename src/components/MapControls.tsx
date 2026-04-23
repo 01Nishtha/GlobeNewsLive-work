@@ -3,8 +3,8 @@
 import { Maximize2, Map, Box, Pin } from "lucide-react";
 
 interface MapControlsProps {
-  is3D: boolean;
-  onToggle3D: () => void;
+  is3D?: boolean;
+  onToggle3D?: () => void;
   onFullscreen: () => void;
   onPinToTop?: () => void;
   isPinned?: boolean;
@@ -21,18 +21,20 @@ export default function MapControls({
 }: MapControlsProps) {
   return (
     <div className={`flex items-center gap-1 ${className}`}>
-      <button
-        onClick={() => onToggle3D()}
-        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[10px] font-mono transition-all ${
-          is3D
-            ? "bg-[#00ff88]/20 text-[#00ff88] border border-[#00ff88]/40"
-            : "bg-white/5 text-white/60 border border-transparent hover:bg-white/10"
-        }`}
-        title={is3D ? "Switch to 2D" : "Switch to 3D"}
-      >
-        {is3D ? <Box size={12} /> : <Map size={12} />}
-        <span>{is3D ? "3D" : "2D"}</span>
-      </button>
+      {onToggle3D && (
+        <button
+          onClick={() => onToggle3D()}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[10px] font-mono transition-all ${
+            is3D
+              ? "bg-[#00ff88]/20 text-[#00ff88] border border-[#00ff88]/40"
+              : "bg-white/5 text-white/60 border border-transparent hover:bg-white/10"
+          }`}
+          title={is3D ? "Switch to 2D" : "Switch to 3D"}
+        >
+          {is3D ? <Box size={12} /> : <Map size={12} />}
+          <span>{is3D ? "3D" : "2D"}</span>
+        </button>
+      )}
 
       <button
         onClick={onFullscreen}

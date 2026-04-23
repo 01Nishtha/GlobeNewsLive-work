@@ -143,7 +143,6 @@ import ShipTracker from "./ShipTracker";
 import OutageMonitor from "./OutageMonitor";
 import CorrelationSignalsPanel from "./CorrelationSignalsPanel";
 import FlightTracker from "./FlightTracker";
-import Globe3D from "./Globe3D";
 
 import { Signal, MarketData } from "@/types";
 
@@ -166,7 +165,6 @@ interface CustomDashboardProps {
   activeLayers: string[];
   onLayerToggle: (layer: string) => void;
   onSignalClick: (signal: Signal) => void;
-  is3D?: boolean;
   mapPinned?: boolean;
 }
 
@@ -301,7 +299,6 @@ const LAYOUT_PRESETS: Record<
     desc: "Map + Country panels + Local news",
     widgets: [
       "world-map",
-      "globe-3d",
       "country-risk",
       "signal-feed",
       "attack-timeline",
@@ -311,7 +308,6 @@ const LAYOUT_PRESETS: Record<
     layout: [
       { i: "signal-feed", x: 0, y: 0, w: 1, h: 12, minW: 1, maxW: 1, minH: 6 },
       { i: "world-map", x: 0, y: 0, w: 1, h: 8, minW: 1, maxW: 1, minH: 5 },
-      { i: "globe-3d", x: 1, y: 0, w: 1, h: 8, minW: 1, maxW: 1, minH: 5 },
       { i: "country-risk", x: 1, y: 8, w: 1, h: 6, minW: 1, maxW: 1, minH: 4 },
       {
         i: "attack-timeline",
@@ -632,7 +628,6 @@ const LAYOUT_PRESETS: Record<
       "outage-monitor",
       "correlation-signals",
       "world-map",
-      "globe-3d",
       "risk-dashboard",
       "military-tracker",
     ],
@@ -643,7 +638,6 @@ const LAYOUT_PRESETS: Record<
       { i: "outage-monitor", x: 1, y: 12, w: 1, h: 10, minW: 1, maxW: 1, minH: 6 },
       { i: "correlation-signals", x: 0, y: 24, w: 1, h: 10, minW: 1, maxW: 1, minH: 6 },
       { i: "world-map", x: 1, y: 22, w: 1, h: 8, minW: 1, maxW: 1, minH: 4 },
-      { i: "globe-3d", x: 0, y: 34, w: 1, h: 10, minW: 1, maxW: 1, minH: 6 },
       { i: "risk-dashboard", x: 1, y: 30, w: 1, h: 6, minW: 1, maxW: 1, minH: 3 },
       { i: "military-tracker", x: 1, y: 36, w: 1, h: 8, minW: 1, maxW: 1, minH: 4 },
     ],
@@ -672,7 +666,6 @@ export default function CustomDashboard({
   activeLayers,
   onLayerToggle,
   onSignalClick,
-  is3D = false,
   mapPinned = false,
 }: CustomDashboardProps) {
   const [layout, setLayout] = useState<Layout[]>(
@@ -906,9 +899,7 @@ export default function CustomDashboard({
           />
         );
       case "world-map":
-        return is3D ? (
-          <Globe3D autoRotate />
-        ) : (
+        return (
           <WorldMap
             signals={signals}
             activeLayers={activeLayers}
@@ -1026,12 +1017,6 @@ export default function CustomDashboard({
         return <CorrelationSignalsPanel />;
       case "flight-tracker":
         return <FlightTracker />;
-      case "globe-3d":
-        return (
-          <div className="h-full min-h-[300px]">
-            <Globe3D autoRotate />
-          </div>
-        );
       default:
         return (
           <div className="flex items-center justify-center h-full text-white/20 text-xs font-mono">

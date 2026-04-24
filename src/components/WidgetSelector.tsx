@@ -28,6 +28,13 @@ export const WIDGET_REGISTRY: Omit<WidgetConfig, 'visible'>[] = [
     defaultSize: { w: 6, h: 10 },
   },
   {
+    id: 'globe3d',
+    name: '3D Globe',
+    icon: '🌐',
+    description: 'Crucix-style tactical 3D globe with atmospheric glow, live markers, and region filters',
+    defaultSize: { w: 6, h: 10 },
+  },
+  {
     id: 'risk-dashboard',
     name: 'Risk Dashboard',
     icon: '⚠️',

@@ -139,12 +139,12 @@ import MemoryRegistry from "./MemoryRegistry";
 import AgenticTradingPanel from "./AgenticTradingPanel";
 import PentagonPizzaPanel from "./PentagonPizzaPanel";
 import { WeatherAlerts } from "./WeatherAlerts";
+import Globe3D from "./Globe3D";
+import { Signal, MarketData } from "@/types";
 import ShipTracker from "./ShipTracker";
 import OutageMonitor from "./OutageMonitor";
 import CorrelationSignalsPanel from "./CorrelationSignalsPanel";
 import FlightTracker from "./FlightTracker";
-
-import { Signal, MarketData } from "@/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -620,13 +620,14 @@ const LAYOUT_PRESETS: Record<
   "strategic-monitor": {
     label: "Strategic Monitor",
     emoji: "🗺️",
-    desc: "Ships + Outages + Flights + Correlations — full situational awareness",
+    desc: "Ships + Outages + Flights + Correlations + 3D Globe — full situational awareness",
     widgets: [
       "signal-feed",
       "ship-tracker",
       "flight-tracker",
       "outage-monitor",
       "correlation-signals",
+      "globe3d",
       "world-map",
       "risk-dashboard",
       "military-tracker",
@@ -637,9 +638,10 @@ const LAYOUT_PRESETS: Record<
       { i: "flight-tracker", x: 0, y: 12, w: 1, h: 12, minW: 1, maxW: 1, minH: 6 },
       { i: "outage-monitor", x: 1, y: 12, w: 1, h: 10, minW: 1, maxW: 1, minH: 6 },
       { i: "correlation-signals", x: 0, y: 24, w: 1, h: 10, minW: 1, maxW: 1, minH: 6 },
-      { i: "world-map", x: 1, y: 22, w: 1, h: 8, minW: 1, maxW: 1, minH: 4 },
-      { i: "risk-dashboard", x: 1, y: 30, w: 1, h: 6, minW: 1, maxW: 1, minH: 3 },
-      { i: "military-tracker", x: 1, y: 36, w: 1, h: 8, minW: 1, maxW: 1, minH: 4 },
+      { i: "globe3d", x: 1, y: 22, w: 1, h: 10, minW: 1, maxW: 1, minH: 6 },
+      { i: "world-map", x: 1, y: 32, w: 1, h: 8, minW: 1, maxW: 1, minH: 4 },
+      { i: "risk-dashboard", x: 1, y: 40, w: 1, h: 6, minW: 1, maxW: 1, minH: 3 },
+      { i: "military-tracker", x: 1, y: 46, w: 1, h: 8, minW: 1, maxW: 1, minH: 4 },
     ],
   },
 };
@@ -652,7 +654,7 @@ const LS_SETTINGS = "globenews_settings";
 const LS_SAVED = "globenews_saved_layouts";
 const LS_CURRENT = "globenews_current_preset";
 const LS_VERSION = "globenews_version";
-const CURRENT_VERSION = "3.7.1"; // Removed RawDataInspector widget
+const CURRENT_VERSION = "3.8.0"; // Added crucix-style 3D Globe
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -1017,6 +1019,8 @@ export default function CustomDashboard({
         return <CorrelationSignalsPanel />;
       case "flight-tracker":
         return <FlightTracker />;
+      case "globe3d":
+        return <Globe3D autoRotate />;
       default:
         return (
           <div className="flex items-center justify-center h-full text-white/20 text-xs font-mono">

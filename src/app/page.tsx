@@ -158,7 +158,7 @@ export default function Dashboard() {
   // Fetch data
   const { data: signalsData, isLoading: signalsLoading, isValidating: signalsValidating } = useSWR<{ signals: Signal[] }>(
     '/api/signals', fetcher,
-    { refreshInterval: 30000, revalidateOnFocus: true, revalidateOnReconnect: true }
+    { refreshInterval: 30000, revalidateOnFocus: true, revalidateOnReconnect: true, keepPreviousData: true, dedupingInterval: 30000 }
   );
 
   const { data: marketsData, isLoading: marketsLoading, isValidating: marketsValidating } = useSWR<{ markets: MarketData[] }>(

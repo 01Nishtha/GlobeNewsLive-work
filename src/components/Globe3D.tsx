@@ -3,11 +3,12 @@
 import React from 'react';
 import Globe from '@/components/ui/globe';
 
-interface Globe3DProps {
+export interface Globe3DProps {
   autoRotate?: boolean;
   className?: string;
+  showFlights?: boolean;
 }
 
-export default function Globe3D({ autoRotate = true, className }: Globe3DProps) {
-  return <Globe autoRotate={autoRotate} className={className} />;
+export default function Globe3D({ className }: Globe3DProps) {
+  return <Globe className={className} />;
 }

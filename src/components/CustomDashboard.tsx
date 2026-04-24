@@ -620,7 +620,7 @@ const LAYOUT_PRESETS: Record<
   "strategic-monitor": {
     label: "Strategic Monitor",
     emoji: "🗺️",
-    desc: "Ships + Outages + Flights + Correlations + 3D Globe — full situational awareness",
+    desc: "Ships + Outages + Flights + Correlations — full situational awareness",
     widgets: [
       "signal-feed",
       "ship-tracker",

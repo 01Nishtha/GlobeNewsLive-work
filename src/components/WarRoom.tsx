@@ -5,34 +5,17 @@ import dynamic from 'next/dynamic';
 import { Signal } from '@/types';
 import { ACTIVE_CONFLICTS } from '@/lib/feeds';
 
-// Dynamic import for Globe3D (uses Three.js which needs client-side only)
-const Globe3D = dynamic(
-  () => import('./Globe3D').catch(() => {
-    // Return a fallback component if import fails
-    return { 
-      default: () => (
-        <div className="h-full flex items-center justify-center bg-void">
-          <div className="text-center">
-            <div className="text-4xl mb-2">🌍</div>
-            <div className="text-[12px] text-white mb-1">3D Globe Unavailable</div>
-            <div className="text-[9px] text-gray-400">Could not load 3D components</div>
-          </div>
-        </div>
-      )
-    };
-  }), 
-  { 
-    ssr: false,
-    loading: () => (
-      <div className="h-full flex items-center justify-center bg-void">
-        <div className="text-center">
-          <div className="text-4xl animate-pulse mb-2">🌍</div>
-          <div className="text-[10px] text-text-muted font-mono">Loading 3D Globe...</div>
-        </div>
+const Globe3D = dynamic(() => import('./Globe3D'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center bg-black">
+      <div className="text-center">
+        <div className="w-8 h-8 border-2 border-white/20 border-t-white/60 rounded-full animate-spin mx-auto mb-2" />
+        <div className="text-white/40 text-xs font-mono">Loading Globe...</div>
       </div>
-    )
-  }
-);
+    </div>
+  )
+});
 
 interface ConflictEvent {
   id: string;
@@ -64,7 +47,6 @@ const THEATERS = [
 
 export default function WarRoom({ signals, conflicts = [] }: WarRoomProps) {
   const [activeTheater, setActiveTheater] = useState('global');
-  const [viewMode, setViewMode] = useState<'globe' | 'tactical'>('globe');
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
@@ -179,8 +161,10 @@ export default function WarRoom({ signals, conflicts = [] }: WarRoomProps) {
         </aside>
 
         {/* Center - 3D Globe */}
-        <section className="flex-1 overflow-hidden">
-          <Globe3D signals={signals} autoRotate={activeTheater === 'global'} />
+        <section className="flex-1 overflow-hidden bg-black relative">
+          <div className="absolute inset-0">
+            <Globe3D autoRotate={true} />
+          </div>
         </section>
 
         {/* Right Panel - Active Conflicts Summary */}

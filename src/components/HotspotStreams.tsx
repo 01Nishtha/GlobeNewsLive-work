@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Tv, Maximize2, Minimize2, Volume2, VolumeX, ExternalLink, RefreshCw } from 'lucide-react';
 
-// Hotspot regions with priority news sources
+// Fresh IDs scraped directly from each channel's /live page — 24/7 news streams
 const HOTSPOT_STREAMS = [
   {
     id: 'mideast',
@@ -12,41 +12,41 @@ const HOTSPOT_STREAMS = [
     icon: '🔥',
     color: '#ff2244',
     channels: [
-      { name: 'Al Jazeera', embedId: 'KyG6amQVSco', directUrl: 'https://www.aljazeera.com/live/' },
-      { name: 'i24 News', embedId: 'vgGnQC5aLdg', directUrl: 'https://www.i24news.tv/en/tv/live' },
+      { name: 'Al Jazeera EN', embedId: 'gCNeDWCI0vo', directUrl: 'https://www.youtube.com/@aljazeeraenglish/streams' },
+      { name: 'Al Jazeera AR', embedId: 'N8xxOD0nT1Y', directUrl: 'https://www.youtube.com/@aljazeera/streams' },
     ]
   },
   {
     id: 'ukraine',
-    name: 'UKRAINE',
-    region: 'Eastern Front',
+    name: 'UKRAINE / EAST EUROPE',
+    region: 'Russia • Baltics',
     icon: '🇺🇦',
     color: '#0057b7',
     channels: [
-      { name: 'Sky News', embedId: 'NygUCOEHrF8', directUrl: 'https://news.sky.com/watch-live' },
-      { name: 'DW News', embedId: 'pYFyp0aYPHw', directUrl: 'https://www.dw.com/en/live-tv/s-100825' },
+      { name: 'DW News', embedId: 'LuKwFajn37U', directUrl: 'https://www.youtube.com/@dwnews/streams' },
+      { name: 'TRT World', embedId: '1VUhRQpz_9o', directUrl: 'https://www.youtube.com/@trtworld/streams' },
     ]
   },
   {
     id: 'asia',
     name: 'ASIA-PACIFIC',
-    region: 'Taiwan • Korea',
+    region: 'Taiwan • Korea • Japan',
     icon: '🌏',
     color: '#00aaff',
     channels: [
-      { name: 'NHK World', embedId: 'f0lYkdA-Gtw', directUrl: 'https://www3.nhk.or.jp/nhkworld/en/live/' },
-      { name: 'CGTN', embedId: 'sU8jxDU0eFw', directUrl: 'https://www.cgtn.com/live' },
+      { name: 'NHK World', embedId: 'f0lYkdA-Gtw', directUrl: 'https://www.youtube.com/@nhkworld/streams' },
+      { name: 'CNA', embedId: 'XWq5kBlakcQ', directUrl: 'https://www.youtube.com/@CNA/streams' },
     ]
   },
   {
-    id: 'global',
-    name: 'GLOBAL',
-    region: 'World News',
-    icon: '🌍',
+    id: 'europe',
+    name: 'EUROPE / GLOBAL',
+    region: 'France • UK • EU',
+    icon: '🇪🇺',
     color: '#00ff88',
     channels: [
-      { name: 'France 24', embedId: 'u9foWyMSrrQ', directUrl: 'https://www.france24.com/en/live' },
-      { name: 'BBC', embedId: 'siyW0GOBtbo', directUrl: 'https://www.bbc.com/news/live' },
+      { name: 'France 24', embedId: 'Ap-UM1O9RBU', directUrl: 'https://www.youtube.com/@France24_en/streams' },
+      { name: 'CBC News', embedId: '5vfaDsMhCF4', directUrl: 'https://www.youtube.com/@CBCNews/streams' },
     ]
   }
 ];
@@ -63,8 +63,31 @@ function StreamPlayer({ hotspot, channelIndex, isMuted, isExpanded, onExpand }: 
   const channel = hotspot.channels[channelIndex] || hotspot.channels[0];
   const [hasError, setHasError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
-  
-  const embedUrl = `https://www.youtube.com/embed/${channel.embedId}?autoplay=1&mute=${isMuted ? 1 : 0}&rel=0&modestbranding=1&playsinline=1&controls=0&enablejsapi=1`;
+  const [retryKey, setRetryKey] = useState(0);
+  const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const embedUrl = `https://www.youtube.com/embed/${channel.embedId}?autoplay=1&mute=${isMuted ? 1 : 0}&rel=0&modestbranding=1&playsinline=1&controls=1&enablejsapi=1`;
+
+  // Timeout fallback: if iframe hasn't loaded in 12s, assume it's broken
+  useEffect(() => {
+    setIsLoaded(false);
+    setHasError(false);
+    loadTimerRef.current = setTimeout(() => {
+      if (!isLoaded) {
+        setHasError(true);
+      }
+    }, 12000);
+    return () => {
+      if (loadTimerRef.current) clearTimeout(loadTimerRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channel.embedId, retryKey]);
+
+  const handleRetry = useCallback(() => {
+    setHasError(false);
+    setIsLoaded(false);
+    setRetryKey(k => k + 1);
+  }, []);
 
   return (
     <div className={`relative bg-black rounded overflow-hidden ${isExpanded ? 'col-span-2 row-span-2' : ''}`}>
@@ -79,7 +102,7 @@ function StreamPlayer({ hotspot, channelIndex, isMuted, isExpanded, onExpand }: 
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <span 
+            <span
               className="w-1.5 h-1.5 rounded-full animate-pulse"
               style={{ backgroundColor: hotspot.color }}
             />
@@ -88,35 +111,54 @@ function StreamPlayer({ hotspot, channelIndex, isMuted, isExpanded, onExpand }: 
         </div>
       </div>
 
-      {/* Video */}
+      {/* Video or Error */}
       {hasError ? (
-        <div className="aspect-video flex items-center justify-center bg-black">
-          <div className="text-center">
-            <div className="text-[10px] text-gray-400 mb-2">Stream unavailable</div>
-            <a 
-              href={channel.directUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[9px] text-cyan-400 hover:underline flex items-center gap-1 justify-center"
-            >
-              <ExternalLink className="w-3 h-3" /> Watch on site
-            </a>
+        <div className="aspect-video flex items-center justify-center bg-[#0a0a0f]">
+          <div className="text-center px-4">
+            <div className="text-lg mb-2">📡</div>
+            <div className="text-[10px] text-gray-400 mb-1">Stream unavailable</div>
+            <div className="text-[9px] text-gray-500 mb-3">{channel.name} may be offline</div>
+            <div className="flex items-center justify-center gap-2">
+              <button
+                onClick={handleRetry}
+                className="flex items-center gap-1 px-2 py-1 rounded text-[9px] bg-white/10 text-white hover:bg-white/20 transition-colors"
+              >
+                <RefreshCw className="w-3 h-3" /> Retry
+              </button>
+              <a
+                href={channel.directUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 px-2 py-1 rounded text-[9px] bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition-colors"
+              >
+                <ExternalLink className="w-3 h-3" /> Open
+              </a>
+            </div>
           </div>
         </div>
       ) : (
         <div className="aspect-video relative">
           {!isLoaded && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black">
-              <RefreshCw className="w-5 h-5 text-white/50 animate-spin" />
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-[1]">
+              <RefreshCw className="w-5 h-5 text-white/50 animate-spin mb-2" />
+              <span className="text-[9px] text-white/40">Loading {channel.name}...</span>
             </div>
           )}
           <iframe
+            key={`${hotspot.id}-${channelIndex}-${retryKey}`}
             src={embedUrl}
             className="w-full h-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
-            onLoad={() => setIsLoaded(true)}
-            onError={() => setHasError(true)}
+            onLoad={() => {
+              setIsLoaded(true);
+              setHasError(false);
+              if (loadTimerRef.current) clearTimeout(loadTimerRef.current);
+            }}
+            onError={() => {
+              setHasError(true);
+              if (loadTimerRef.current) clearTimeout(loadTimerRef.current);
+            }}
           />
         </div>
       )}
@@ -126,6 +168,13 @@ function StreamPlayer({ hotspot, channelIndex, isMuted, isExpanded, onExpand }: 
         <div className="flex items-center justify-between">
           <span className="text-[8px] text-gray-400">{hotspot.region}</span>
           <div className="flex items-center gap-1">
+            <button
+              onClick={handleRetry}
+              className="p-1 hover:bg-white/20 rounded"
+              title="Reload stream"
+            >
+              <RefreshCw className="w-3 h-3 text-white" />
+            </button>
             <a
               href={channel.directUrl}
               target="_blank"
@@ -152,10 +201,9 @@ export default function HotspotStreams() {
     mideast: 0,
     ukraine: 0,
     asia: 0,
-    global: 0
+    europe: 0
   });
 
-  // Cycle through channels for each hotspot
   const cycleChannel = (hotspotId: string) => {
     setChannelIndices(prev => ({
       ...prev,
@@ -213,17 +261,17 @@ export default function HotspotStreams() {
                 onClick={() => cycleChannel(hotspot.id)}
                 className="text-[8px] text-center py-1 px-1 rounded bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
               >
-                {hotspot.icon} Switch
+                {hotspot.icon} {hotspot.channels[channelIndices[hotspot.id]].name}
               </button>
             ))}
           </div>
 
           {/* Quick links */}
           <div className="flex items-center justify-center gap-3 mt-2 text-[8px]">
-            <a href="https://www.aljazeera.com/live/" target="_blank" className="text-gray-500 hover:text-white">AJE</a>
-            <a href="https://www.i24news.tv/en/tv/live" target="_blank" className="text-gray-500 hover:text-white">i24</a>
-            <a href="https://news.sky.com/watch-live" target="_blank" className="text-gray-500 hover:text-white">SKY</a>
-            <a href="https://www.france24.com/en/live" target="_blank" className="text-gray-500 hover:text-white">F24</a>
+            <a href="https://www.youtube.com/@aljazeeraenglish/streams" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white">AJE</a>
+            <a href="https://www.youtube.com/@dwnews/streams" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white">DW</a>
+            <a href="https://www.youtube.com/@nhkworld/streams" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white">NHK</a>
+            <a href="https://www.youtube.com/@France24_en/streams" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white">F24</a>
           </div>
         </div>
       )}

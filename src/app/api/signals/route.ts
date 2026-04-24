@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { unstable_cache } from "next/cache";
 import {
   classifyThreat,
   classifyCategory,
@@ -910,32 +911,41 @@ let cache: {
 } | null = null;
 const CACHE_TTL = 90 * 1000; // 90 seconds
 
-const FETCH_TIMEOUT = 3500; // 3.5s max per feed
+const FETCH_TIMEOUT = 2000; // 2s max per feed
+
+function fetchWithTimeout(url: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+
+    fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; GlobeNews-Live/2.0; +https://globenews.live)",
+        Accept: "application/rss+xml, application/xml, text/xml, application/atom+xml",
+      },
+      next: { revalidate: 60 },
+    })
+      .then((res) => {
+        clearTimeout(timer);
+        return res.ok ? res.text() : null;
+      })
+      .then((text) => resolve(text))
+      .catch(() => {
+        clearTimeout(timer);
+        resolve(null);
+      });
+  });
+}
 
 // Fetch all feeds in parallel with timeout and concurrency limit
-async function fetchAllFeeds(): Promise<{ signals: Signal[]; success: number; failed: number }> {
-  const fetchWithTimeout = async (url: string): Promise<string | null> => {
-    try {
-      const res = await fetch(url, {
-        signal: (AbortSignal as any).timeout?.(FETCH_TIMEOUT) || undefined,
-        headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; GlobeNews-Live/2.0; +https://globenews.live)",
-          Accept: "application/rss+xml, application/xml, text/xml, application/atom+xml",
-        },
-        next: { revalidate: 60 },
-      });
-      return res.ok ? await res.text() : null;
-    } catch {
-      return null;
-    }
-  };
-
+async function fetchAllFeedsRaw(): Promise<{ signals: Signal[]; success: number; failed: number }> {
   let successCount = 0;
   let failCount = 0;
   const allSignals: Signal[] = [];
 
-  // Process in chunks of 18 to avoid network stack congestion
-  const chunkSize = 18;
+  // Process in chunks of 10 to avoid network stack congestion
+  const chunkSize = 10;
   for (let i = 0; i < FEEDS.length; i += chunkSize) {
     const chunk = FEEDS.slice(i, i + chunkSize);
     const results = await Promise.all(
@@ -985,12 +995,19 @@ async function fetchAllFeeds(): Promise<{ signals: Signal[]; success: number; fa
   return { signals: uniqueSignals.slice(0, 100), success: successCount, failed: failCount };
 }
 
+const getCachedSignals = unstable_cache(
+  async () => fetchAllFeedsRaw(),
+  ["signals-feed"],
+  { revalidate: 60, tags: ["signals"] }
+);
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const filter = searchParams.get("filter");
   const refresh = searchParams.get("refresh") === "true";
 
   try {
+    // Use in-memory module cache for sub-90s hits inside the same lambda
     if (!refresh && cache && Date.now() - cache.timestamp < CACHE_TTL) {
       let signals = cache.signals;
       if (filter === "iran") {
@@ -999,8 +1016,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ signals, cached: true, sources: cache.sources });
     }
 
-    const { signals, success, failed } = await fetchAllFeeds();
+    const { signals, success, failed } = await getCachedSignals();
 
+    // Update module cache too
     cache = { signals, timestamp: Date.now(), sources: { success, failed } };
 
     let filteredSignals = signals;

@@ -153,9 +153,13 @@ export default function SignalFeed({ signals, loading, onSignalClick }: SignalFe
   const OVERSCAN = 3;
   const [scrollTop, setScrollTop] = useState(0);
   const [containerHeight, setContainerHeight] = useState(600);
+  const [isHovered, setIsHovered] = useState(false);
+  const rafRef = useRef(0);
+  const scrollPosRef = useRef(0);
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     setScrollTop(e.currentTarget.scrollTop);
+    scrollPosRef.current = e.currentTarget.scrollTop;
   }, []);
 
   useEffect(() => {
@@ -201,6 +205,34 @@ export default function SignalFeed({ signals, loading, onSignalClick }: SignalFe
     if (filter === 'critical') return s.severity === 'CRITICAL' || s.severity === 'HIGH';
     return true;
   });
+
+  // Auto-scroll loop
+  useEffect(() => {
+    let lastTime = 0;
+    const speed = 35; // px per second
+
+    const tick = (time: number) => {
+      if (lastTime === 0) lastTime = time;
+      const dt = (time - lastTime) / 1000;
+      lastTime = time;
+
+      const el = listRef.current;
+      if (el && !isHovered && filteredSignals.length > 0) {
+        const maxScroll = el.scrollHeight - el.clientHeight;
+        let next = scrollPosRef.current + speed * dt;
+        if (next >= maxScroll) {
+          next = 0; // loop back to top
+        }
+        el.scrollTop = next;
+        scrollPosRef.current = next;
+        setScrollTop(next);
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [isHovered, filteredSignals.length]);
 
   // Counts
   const criticalCount = signals.filter(s => s.severity === 'CRITICAL').length;
@@ -280,6 +312,8 @@ export default function SignalFeed({ signals, loading, onSignalClick }: SignalFe
         id="signal-feed"
         className="flex-1 overflow-y-auto px-2" 
         onScroll={handleScroll}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         style={{ willChange: 'transform' }}
       >
         {loading && signals.length === 0 ? (

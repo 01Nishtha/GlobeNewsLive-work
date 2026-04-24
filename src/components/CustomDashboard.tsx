@@ -131,7 +131,6 @@ import SignalModalPanel from "./SignalModalPanel";
 import CountryTimelinePanel from "./CountryTimelinePanel";
 import FeedPipelineMonitor from "./FeedPipelineMonitor";
 import EventObservations from "./EventObservations";
-import RawDataInspector from "./RawDataInspector";
 import FeedSyncStatus from "./FeedSyncStatus";
 import ActivityWaterfall from "./ActivityWaterfall";
 import MarketsTerminal from "./MarketsTerminal";
@@ -140,8 +139,12 @@ import MemoryRegistry from "./MemoryRegistry";
 import AgenticTradingPanel from "./AgenticTradingPanel";
 import PentagonPizzaPanel from "./PentagonPizzaPanel";
 import { WeatherAlerts } from "./WeatherAlerts";
-
+import Globe3D from "./Globe3D";
 import { Signal, MarketData } from "@/types";
+import ShipTracker from "./ShipTracker";
+import OutageMonitor from "./OutageMonitor";
+import CorrelationSignalsPanel from "./CorrelationSignalsPanel";
+import FlightTracker from "./FlightTracker";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -162,6 +165,8 @@ interface CustomDashboardProps {
   activeLayers: string[];
   onLayerToggle: (layer: string) => void;
   onSignalClick: (signal: Signal) => void;
+  mapPinned?: boolean;
+  mapMode?: '2d' | '3d';
 }
 
 // ─── Layout Presets ───────────────────────────────────────────────────────────
@@ -186,6 +191,7 @@ const LAYOUT_PRESETS: Record<
       "hotspot-streams",
       "risk-dashboard",
       "sentiment-meter",
+      "feed-pipeline",
       "ai-insights",
       "situation-brief",
       "attack-timeline",
@@ -223,11 +229,12 @@ const LAYOUT_PRESETS: Record<
         maxW: 1,
         minH: 3,
       },
-      { i: "ai-insights", x: 0, y: 11, w: 1, h: 5, minW: 1, maxW: 1, minH: 3 },
+      { i: "feed-pipeline", x: 0, y: 11, w: 2, h: 6, minW: 1, maxW: 2, minH: 4 },
+      { i: "ai-insights", x: 0, y: 17, w: 1, h: 5, minW: 1, maxW: 1, minH: 3 },
       {
         i: "situation-brief",
         x: 1,
-        y: 11,
+        y: 17,
         w: 1,
         h: 5,
         minW: 1,
@@ -237,7 +244,7 @@ const LAYOUT_PRESETS: Record<
       {
         i: "attack-timeline",
         x: 0,
-        y: 16,
+        y: 22,
         w: 1,
         h: 5,
         minW: 1,
@@ -302,7 +309,7 @@ const LAYOUT_PRESETS: Record<
     layout: [
       { i: "signal-feed", x: 0, y: 0, w: 1, h: 12, minW: 1, maxW: 1, minH: 6 },
       { i: "world-map", x: 0, y: 0, w: 1, h: 8, minW: 1, maxW: 1, minH: 5 },
-      { i: "country-risk", x: 1, y: 0, w: 1, h: 6, minW: 1, maxW: 1, minH: 4 },
+      { i: "country-risk", x: 1, y: 8, w: 1, h: 6, minW: 1, maxW: 1, minH: 4 },
       {
         i: "attack-timeline",
         x: 0,
@@ -573,7 +580,6 @@ const LAYOUT_PRESETS: Record<
       "activity-waterfall",
       "event-observations",
       "feed-sync",
-      "raw-inspector",
       "memory-registry",
       "world-map",
       "risk-dashboard",
@@ -584,7 +590,6 @@ const LAYOUT_PRESETS: Record<
       { i: "activity-waterfall", x: 0, y: 12, w: 1, h: 8, minW: 1, maxW: 1, minH: 6 },
       { i: "event-observations", x: 1, y: 8, w: 1, h: 8, minW: 1, maxW: 1, minH: 6 },
       { i: "feed-sync", x: 0, y: 20, w: 1, h: 8, minW: 1, maxW: 1, minH: 6 },
-      { i: "raw-inspector", x: 1, y: 16, w: 1, h: 8, minW: 1, maxW: 1, minH: 6 },
       { i: "memory-registry", x: 0, y: 28, w: 1, h: 10, minW: 1, maxW: 1, minH: 6 },
       { i: "world-map", x: 1, y: 24, w: 1, h: 6, minW: 1, maxW: 1, minH: 4 },
       { i: "risk-dashboard", x: 1, y: 30, w: 1, h: 6, minW: 1, maxW: 1, minH: 3 },
@@ -613,9 +618,36 @@ const LAYOUT_PRESETS: Record<
       { i: "strategic-risk", x: 1, y: 26, w: 1, h: 10, minW: 1, maxW: 1, minH: 8 },
     ],
   },
+  "strategic-monitor": {
+    label: "Strategic Monitor",
+    emoji: "🗺️",
+    desc: "Ships + Outages + Flights + Correlations + 3D Globe — full situational awareness",
+    widgets: [
+      "signal-feed",
+      "ship-tracker",
+      "flight-tracker",
+      "outage-monitor",
+      "correlation-signals",
+      "globe3d",
+      "world-map",
+      "risk-dashboard",
+      "military-tracker",
+    ],
+    layout: [
+      { i: "signal-feed", x: 0, y: 0, w: 1, h: 12, minW: 1, maxW: 1, minH: 6 },
+      { i: "ship-tracker", x: 1, y: 0, w: 1, h: 12, minW: 1, maxW: 1, minH: 6 },
+      { i: "flight-tracker", x: 0, y: 12, w: 1, h: 12, minW: 1, maxW: 1, minH: 6 },
+      { i: "outage-monitor", x: 1, y: 12, w: 1, h: 10, minW: 1, maxW: 1, minH: 6 },
+      { i: "correlation-signals", x: 0, y: 24, w: 1, h: 10, minW: 1, maxW: 1, minH: 6 },
+      { i: "globe3d", x: 1, y: 22, w: 1, h: 10, minW: 1, maxW: 1, minH: 6 },
+      { i: "world-map", x: 1, y: 32, w: 1, h: 8, minW: 1, maxW: 1, minH: 4 },
+      { i: "risk-dashboard", x: 1, y: 40, w: 1, h: 6, minW: 1, maxW: 1, minH: 3 },
+      { i: "military-tracker", x: 1, y: 46, w: 1, h: 8, minW: 1, maxW: 1, minH: 4 },
+    ],
+  },
 };
 
-// ─── LocalStorage Keys ────────────────────────────────────────────────────────
+// ─── LocalStorage Keys ─────────────────────────────────────────────────────────────────────────
 
 const LS_LAYOUT = "globenews_layout";
 const LS_VISIBLE = "globenews_visible";
@@ -623,7 +655,7 @@ const LS_SETTINGS = "globenews_settings";
 const LS_SAVED = "globenews_saved_layouts";
 const LS_CURRENT = "globenews_current_preset";
 const LS_VERSION = "globenews_version";
-const CURRENT_VERSION = "3.5.0"; // Bumped for World Monitor UI refresh
+const CURRENT_VERSION = "3.8.0"; // Added crucix-style 3D Globe
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -637,6 +669,8 @@ export default function CustomDashboard({
   activeLayers,
   onLayerToggle,
   onSignalClick,
+  mapPinned = false,
+  mapMode = '3d',
 }: CustomDashboardProps) {
   const [layout, setLayout] = useState<Layout[]>(
     LAYOUT_PRESETS["intelligence-analyst"].layout,
@@ -869,7 +903,9 @@ export default function CustomDashboard({
           />
         );
       case "world-map":
-        return (
+        return mapMode === '3d' ? (
+          <Globe3D autoRotate />
+        ) : (
           <WorldMap
             signals={signals}
             activeLayers={activeLayers}
@@ -963,8 +999,6 @@ export default function CustomDashboard({
         return <FeedPipelineMonitor />;
       case "event-observations":
         return <EventObservations />;
-      case "raw-inspector":
-        return <RawDataInspector />;
       case "feed-sync":
         return <FeedSyncStatus />;
       case "activity-waterfall":
@@ -981,6 +1015,16 @@ export default function CustomDashboard({
         return <PentagonPizzaPanel />;
       case "weather-alerts":
         return <WeatherAlerts />;
+      case "ship-tracker":
+        return <ShipTracker />;
+      case "outage-monitor":
+        return <OutageMonitor />;
+      case "correlation-signals":
+        return <CorrelationSignalsPanel />;
+      case "flight-tracker":
+        return <FlightTracker />;
+      case "globe3d":
+        return <Globe3D autoRotate />;
       default:
         return (
           <div className="flex items-center justify-center h-full text-white/20 text-xs font-mono">
@@ -1021,8 +1065,16 @@ export default function CustomDashboard({
 
   // Separate signal-feed from other widgets
   const showSignalFeed = visibleWidgets.includes("signal-feed");
-  const otherVisibleWidgets = visibleWidgets.filter((w) => w !== "signal-feed");
+  let otherVisibleWidgets = visibleWidgets.filter((w) => w !== "signal-feed");
   const otherActiveLayout = layout.filter((l) => l.i !== "signal-feed");
+
+  // Pin world-map to top when requested
+  if (mapPinned && otherVisibleWidgets.includes("world-map")) {
+    otherVisibleWidgets = [
+      "world-map",
+      ...otherVisibleWidgets.filter((w) => w !== "world-map"),
+    ];
+  }
 
   return (
     <DashboardErrorBoundary>
@@ -1381,17 +1433,24 @@ export default function CustomDashboard({
               >
                 {otherVisibleWidgets.map((widgetId) => {
                   const meta = getWidgetMeta(widgetId);
+                  const isWorldMap = widgetId === "world-map";
                   return (
                     <div
                       key={widgetId}
-                      className="widget-panel flex flex-col rounded-lg overflow-hidden border group"
+                      id={isWorldMap ? "world-map-container" : undefined}
+                      className={`widget-panel flex flex-col rounded-lg overflow-hidden border group ${isWorldMap && mapPinned ? "pinned-map" : ""}`}
                       style={{
                         background:
                           settings.theme === "light" ? "#ffffff" : "#0f1218",
-                        borderColor: "rgba(255,255,255,0.07)",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                        borderColor: isWorldMap && mapPinned
+                          ? "rgba(0,255,136,0.3)"
+                          : "rgba(255,255,255,0.07)",
+                        boxShadow: isWorldMap && mapPinned
+                          ? "0 0 16px rgba(0,255,136,0.15), 0 2px 8px rgba(0,0,0,0.3)"
+                          : "0 2px 8px rgba(0,0,0,0.3)",
                         transition: "border-color 0.2s, box-shadow 0.2s",
-                        minHeight: "400px",
+                        minHeight: isWorldMap && mapPinned ? "600px" : "400px",
+                        gridColumn: isWorldMap && mapPinned ? "1 / -1" : undefined,
                       }}
                     >
                       {/* Widget Header */}
@@ -1462,7 +1521,7 @@ export default function CustomDashboard({
             )}
           </div>
         </div>
-        {/* ── Widget Selector Panel ─────────────────────────────────────── */}
+        {/* ── Widget Selector Panel ────────────────────────────────── */}
         <WidgetSelector
           isOpen={showWidgetSelector}
           onClose={() => setShowWidgetSelector(false)}

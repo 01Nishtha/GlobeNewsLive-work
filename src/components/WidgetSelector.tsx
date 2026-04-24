@@ -28,6 +28,13 @@ export const WIDGET_REGISTRY: Omit<WidgetConfig, 'visible'>[] = [
     defaultSize: { w: 6, h: 10 },
   },
   {
+    id: 'globe3d',
+    name: '3D Globe',
+    icon: '🌐',
+    description: 'Crucix-style tactical 3D globe with atmospheric glow, live markers, and region filters',
+    defaultSize: { w: 6, h: 10 },
+  },
+  {
     id: 'risk-dashboard',
     name: 'Risk Dashboard',
     icon: '⚠️',
@@ -315,13 +322,6 @@ export const WIDGET_REGISTRY: Omit<WidgetConfig, 'visible'>[] = [
     defaultSize: { w: 3, h: 12 },
   },
   {
-    id: 'raw-inspector',
-    name: 'Raw Data Inspector',
-    icon: '🔧',
-    description: 'Hex/ASCII packet inspector for debugging API responses and feed payloads',
-    defaultSize: { w: 4, h: 10 },
-  },
-  {
     id: 'feed-sync',
     name: 'Feed Sync Status',
     icon: '🔄',
@@ -376,6 +376,34 @@ export const WIDGET_REGISTRY: Omit<WidgetConfig, 'visible'>[] = [
     icon: '⚡',
     description: 'Real-time severe weather warnings & alerts',
     defaultSize: { w: 3, h: 8 },
+  },
+  {
+    id: 'ship-tracker',
+    name: 'Ship Tracker',
+    icon: '🚢',
+    description: 'Maritime AIS tracking for strategic chokepoints — Hormuz, Red Sea, Suez, Malacca',
+    defaultSize: { w: 3, h: 12 },
+  },
+  {
+    id: 'outage-monitor',
+    name: 'Outage Monitor',
+    icon: '📡',
+    description: 'Internet outages & GPS jamming detection via NetBlocks, Cloudflare, OPSGROUP',
+    defaultSize: { w: 3, h: 10 },
+  },
+  {
+    id: 'correlation-signals',
+    name: 'AI Correlations',
+    icon: '🧠',
+    description: 'Real-time cross-signal correlation engine — velocity spikes, geo clusters, market divergences',
+    defaultSize: { w: 3, h: 10 },
+  },
+  {
+    id: 'flight-tracker',
+    name: 'Flight Tracker',
+    icon: '✈️',
+    description: 'Military & ISR aircraft tracking via OpenSky Network',
+    defaultSize: { w: 3, h: 12 },
   },
 ];
 

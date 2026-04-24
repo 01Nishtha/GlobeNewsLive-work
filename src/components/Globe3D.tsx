@@ -8,6 +8,6 @@ interface Globe3DProps {
   className?: string;
 }
 
-export default function Globe3D({ className }: Globe3DProps) {
-  return <Globe className={className} />;
+export default function Globe3D({ autoRotate = true, className }: Globe3DProps) {
+  return <Globe autoRotate={autoRotate} className={className} />;
 }

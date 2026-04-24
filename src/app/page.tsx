@@ -48,6 +48,7 @@ import MapControls from '@/components/MapControls';
 import MapLegend from '@/components/MapLegend';
 import LiveNewsTicker from '@/components/LiveNewsTicker';
 import EnhancedLayerPanel from '@/components/EnhancedLayerPanel';
+import { Globe, Map as MapIcon } from 'lucide-react';
 import { Signal, MarketData, PredictionMarket, ThreatLevel } from '@/types';
 import { getThreatLevelFromSignals } from '@/lib/classify';
 import { ACTIVE_CONFLICTS } from '@/lib/feeds';
@@ -98,9 +99,11 @@ function playAlertSound() {
 
 type ViewMode = 'dashboard' | 'warroom';
 type MobileView = 'feed' | 'map' | 'markets' | 'tracking';
+type MapMode = '2d' | '3d';
 
 export default function Dashboard() {
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
+  const [mapMode, setMapMode] = useState<MapMode>('3d');
   const [activeLayers, setActiveLayers] = useState([
     'flights', 'routes', 'conflicts', 'military', 'chokepoints', 'earthquakes', 
     'nuclear', 'spaceports', 'iran', 'cables', 'pipelines', 
@@ -385,6 +388,15 @@ export default function Dashboard() {
           >
             ⚔️ WAR ROOM
           </button>
+          <div className="h-4 w-px bg-white/10 mx-1" />
+          <button
+            onClick={() => setMapMode(mapMode === '2d' ? '3d' : '2d')}
+            className="px-3 py-1 rounded text-[10px] font-mono bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 transition-all flex items-center gap-1.5"
+          >
+            {mapMode === '2d' ? <Globe size={12} /> : <MapIcon size={12} />}
+            {mapMode === '2d' ? '3D GLOBE' : '2D MAP'}
+          </button>
+          <div className="h-4 w-px bg-white/10 mx-1" />
           <button
             onClick={() => setTvMode(true)}
             className="px-3 py-1 rounded text-[10px] font-mono text-text-dim hover:text-white hover:bg-white/5"
@@ -484,6 +496,7 @@ export default function Dashboard() {
           onLayerToggle={handleLayerToggle}
           onSignalClick={handleSignalClick}
           mapPinned={mapPinned}
+          mapMode={mapMode}
         />
       </div>
 

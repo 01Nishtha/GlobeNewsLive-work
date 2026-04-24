@@ -166,6 +166,7 @@ interface CustomDashboardProps {
   onLayerToggle: (layer: string) => void;
   onSignalClick: (signal: Signal) => void;
   mapPinned?: boolean;
+  mapMode?: '2d' | '3d';
 }
 
 // ─── Layout Presets ───────────────────────────────────────────────────────────
@@ -669,6 +670,7 @@ export default function CustomDashboard({
   onLayerToggle,
   onSignalClick,
   mapPinned = false,
+  mapMode = '3d',
 }: CustomDashboardProps) {
   const [layout, setLayout] = useState<Layout[]>(
     LAYOUT_PRESETS["intelligence-analyst"].layout,
@@ -901,7 +903,9 @@ export default function CustomDashboard({
           />
         );
       case "world-map":
-        return (
+        return mapMode === '3d' ? (
+          <Globe3D autoRotate />
+        ) : (
           <WorldMap
             signals={signals}
             activeLayers={activeLayers}

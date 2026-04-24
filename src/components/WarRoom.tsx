@@ -1,8 +1,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { Signal } from '@/types';
 import { ACTIVE_CONFLICTS } from '@/lib/feeds';
+
+const Globe3D = dynamic(() => import('./Globe3D'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center bg-black">
+      <div className="text-center">
+        <div className="w-8 h-8 border-2 border-white/20 border-t-white/60 rounded-full animate-spin mx-auto mb-2" />
+        <div className="text-white/40 text-xs font-mono">Loading Globe...</div>
+      </div>
+    </div>
+  )
+});
 
 interface ConflictEvent {
   id: string;
@@ -147,12 +160,10 @@ export default function WarRoom({ signals, conflicts = [] }: WarRoomProps) {
           </div>
         </aside>
 
-        {/* Center - Map Placeholder */}
-        <section className="flex-1 overflow-hidden bg-[#0a0a0f] flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-4xl mb-3">🌍</div>
-            <div className="font-mono text-[11px] text-gray-400">GLOBE VIEW DISABLED</div>
-            <div className="text-[9px] text-gray-600 mt-1">Use World Map widget for geographic view</div>
+        {/* Center - 3D Globe */}
+        <section className="flex-1 overflow-hidden bg-black relative">
+          <div className="absolute inset-0">
+            <Globe3D autoRotate={true} />
           </div>
         </section>
 

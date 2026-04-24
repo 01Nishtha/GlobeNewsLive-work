@@ -1,24 +1,24 @@
 'use client';
 
-import React, { useRef, useMemo, useState, useCallback, useEffect } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Html } from '@react-three/drei';
+import React, { useRef, useMemo, useState, useEffect, Suspense } from 'react';
+import { Canvas, useFrame, useLoader } from '@react-three/fiber';
+import { OrbitControls, Html, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import useSWR from 'swr';
 import {
-  Plus, Minus, Globe, Plane, Flame, Crosshair,
-  Radio, Anchor, Activity, Satellite, Zap,
-  ChevronDown, Map as MapIcon,
+  Plus, Minus, Globe, Map as MapIcon,
+  Plane, Flame, Crosshair, Anchor, Radio, Zap, Satellite,
 } from 'lucide-react';
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Types
-// ═══════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════
 
 interface Globe3DProps {
   autoRotate?: boolean;
+  className?: string;
 }
 
 interface MarkerData {
@@ -35,12 +35,20 @@ type MarkerType =
   | 'fire' | 'earthquake' | 'cyber' | 'satellite'
   | 'ship' | 'outage' | 'weather';
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════
 // Constants
-// ═══════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════
 
 const EARTH_RADIUS = 2;
-const ATMOSPHERE_SCALE = 1.18;
+const CLOUD_RADIUS = 2.015;
+const ATMOSPHERE_SCALE = 1.04;
+
+const TEXTURE_URLS = {
+  map: 'https://unpkg.com/three-globe@2.24.13/example/img/earth-blue-marble.jpg',
+  bump: 'https://unpkg.com/three-globe@2.24.13/example/img/earth-topology.png',
+  specular: 'https://unpkg.com/three-globe@2.24.13/example/img/earth-water.png',
+  clouds: 'https://unpkg.com/three-globe@2.24.13/example/img/earth-clouds.png',
+};
 
 const MARKER_COLORS: Record<MarkerType, string> = {
   aircraft: '#00d4ff',
@@ -56,29 +64,18 @@ const MARKER_COLORS: Record<MarkerType, string> = {
   weather: '#00ccff',
 };
 
-const MARKER_ICONS: Record<MarkerType, string> = {
-  aircraft: '✈️', conflict: '⚔️', nuclear: '☢️', chokepoint: '⚓',
-  fire: '🔥', earthquake: '🌍', cyber: '💻', satellite: '🛰️',
-  ship: '🚢', outage: '📡', weather: '🌪️',
-};
-
-const TEXTURE_URLS = {
-  night: '//unpkg.com/three-globe@2.33.0/example/img/earth-night.jpg',
-  topo: '//unpkg.com/three-globe@2.33.0/example/img/earth-topology.png',
-};
-
 const REGIONS = [
-  { id: 'world', name: 'WORLD', rotation: 0 },
-  { id: 'americas', name: 'AMERICAS', rotation: -1.8 },
-  { id: 'europe', name: 'EUROPE', rotation: -0.3 },
-  { id: 'middleeast', name: 'MIDDLE EAST', rotation: -0.8 },
-  { id: 'asiapacific', name: 'ASIA PACIFIC', rotation: -2.2 },
-  { id: 'africa', name: 'AFRICA', rotation: -0.6 },
+  { id: 'world', name: 'WORLD', lat: 20, lon: 0 },
+  { id: 'americas', name: 'AMERICAS', lat: 15, lon: -90 },
+  { id: 'europe', name: 'EUROPE', lat: 50, lon: 15 },
+  { id: 'middleeast', name: 'MIDDLE EAST', lat: 30, lon: 45 },
+  { id: 'asiapacific', name: 'ASIA PACIFIC', lat: 25, lon: 110 },
+  { id: 'africa', name: 'AFRICA', lat: 5, lon: 20 },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Math helpers
-// ═══════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════
 
 function latLonToVector3(lat: number, lon: number, radius: number): THREE.Vector3 {
   const phi = (90 - lat) * (Math.PI / 180);
@@ -90,47 +87,84 @@ function latLonToVector3(lat: number, lon: number, radius: number): THREE.Vector
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Texture Loader
-// ═══════════════════════════════════════════════════════════════════════════════
+function latLonToRotation(lat: number, lon: number): { x: number; y: number } {
+  return {
+    x: (lat * Math.PI) / 180,
+    y: (-lon * Math.PI) / 180,
+  };
+}
 
-function useEarthTextures() {
-  const [textures, setTextures] = useState<{
-    map: THREE.Texture | null;
-    bumpMap: THREE.Texture | null;
-    loading: boolean;
-  }>({ map: null, bumpMap: null, loading: true });
+// ════════════════════════════════════════════════════════════════════════════════
+// Earth Sphere with realistic textures
+// ════════════════════════════════════════════════════════════════════════════════
 
-  useEffect(() => {
-    const loader = new THREE.TextureLoader();
-    loader.crossOrigin = 'anonymous';
-    loader.load(
-      TEXTURE_URLS.night,
-      (map) => {
-        loader.load(
-          TEXTURE_URLS.topo,
-          (bumpMap) => setTextures({ map, bumpMap, loading: false }),
-          undefined,
-          () => setTextures({ map, bumpMap: null, loading: false })
-        );
-      },
-      undefined,
-      () => setTextures({ map: null, bumpMap: null, loading: false })
-    );
-  }, []);
+function EarthSurface() {
+  const [map, bumpMap, specularMap] = useLoader(THREE.TextureLoader, [
+    TEXTURE_URLS.map,
+    TEXTURE_URLS.bump,
+    TEXTURE_URLS.specular,
+  ]);
 
-  return textures;
+  const material = useMemo(() => {
+    const mat = new THREE.MeshStandardMaterial({
+      map: map || undefined,
+      bumpMap: bumpMap || undefined,
+      bumpScale: 0.04,
+      roughnessMap: specularMap || undefined,
+      roughness: 0.8,
+      metalness: 0.05,
+      color: 0xaaaaaa,
+    });
+    return mat;
+  }, [map, bumpMap, specularMap]);
+
+  return (
+    <mesh>
+      <sphereGeometry args={[EARTH_RADIUS, 128, 128]} />
+      <primitive object={material} attach="material" />
+    </mesh>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// Cloud Layer
+// ════════════════════════════════════════════════════════════════════════════════
+
+function CloudLayer({ autoRotate }: { autoRotate: boolean }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const cloudMap = useLoader(THREE.TextureLoader, TEXTURE_URLS.clouds);
+
+  useFrame((_, delta) => {
+    if (meshRef.current && autoRotate) {
+      meshRef.current.rotation.y += delta * 0.008;
+    }
+  });
+
+  return (
+    <mesh ref={meshRef} scale={[CLOUD_RADIUS / EARTH_RADIUS, CLOUD_RADIUS / EARTH_RADIUS, CLOUD_RADIUS / EARTH_RADIUS]}>
+      <sphereGeometry args={[EARTH_RADIUS, 64, 64]} />
+      <meshStandardMaterial
+        map={cloudMap || undefined}
+        transparent
+        opacity={0.35}
+        depthWrite={false}
+        side={THREE.DoubleSide}
+        roughness={1}
+        metalness={0}
+      />
+    </mesh>
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Atmosphere (Fresnel rim glow)
-// ═══════════════════════════════════════════════════════════════════════════════
+// Atmosphere — subtle natural blue-white rim glow
+// ════════════════════════════════════════════════════════════════════════════════
 
 function Atmosphere() {
   const uniforms = useMemo(() => ({
-    atmosphereColor: { value: new THREE.Color('#64f0c8') },
-    c: { value: 0.52 },
-    p: { value: 5.5 },
+    atmColor: { value: new THREE.Color('#4488cc') },
+    c: { value: 0.6 },
+    p: { value: 4.5 },
   }), []);
 
   const vertexShader = `
@@ -143,12 +177,12 @@ function Atmosphere() {
 
   const fragmentShader = `
     varying vec3 vNormal;
-    uniform vec3 atmosphereColor;
+    uniform vec3 atmColor;
     uniform float c;
     uniform float p;
     void main() {
       float intensity = pow(c - dot(vNormal, vec3(0.0, 0.0, 1.0)), p);
-      gl_FragColor = vec4(atmosphereColor * intensity, intensity * 0.8);
+      gl_FragColor = vec4(atmColor * intensity, intensity * 0.35);
     }
   `;
 
@@ -168,14 +202,14 @@ function Atmosphere() {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Graticules (lat/lon grid)
+// ════════════════════════════════════════════════════════════════════════════════
+// Graticules (faint grid)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function Graticules({ rotationY }: { rotationY: number }) {
   const lines = useMemo(() => {
     const points: THREE.Vector3[] = [];
-    const r = EARTH_RADIUS + 0.003;
+    const r = EARTH_RADIUS + 0.002;
 
     for (let lon = -180; lon <= 180; lon += 30) {
       const adjLon = lon - (rotationY * 180 / Math.PI);
@@ -195,9 +229,9 @@ function Graticules({ rotationY }: { rotationY: number }) {
 
     const geo = new THREE.BufferGeometry().setFromPoints(points);
     const mat = new THREE.LineBasicMaterial({
-      color: 0x1a4a4a,
+      color: 0x2a5a6a,
       transparent: true,
-      opacity: 0.25,
+      opacity: 0.12,
       depthWrite: false,
     });
     return new THREE.LineSegments(geo, mat);
@@ -206,109 +240,32 @@ function Graticules({ rotationY }: { rotationY: number }) {
   return <primitive object={lines} />;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Starfield
-// ═══════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════
+// Data Marker
+// ════════════════════════════════════════════════════════════════════════════════
 
-function StarField() {
-  const meshRef = useRef<THREE.Points>(null);
-  const geo = useMemo(() => {
-    const count = 2500;
-    const pos = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      const r = 60 + Math.random() * 200;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-      pos[i * 3 + 2] = r * Math.cos(phi);
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    return geometry;
-  }, []);
-
-  useFrame(({ clock }) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y = clock.getElapsedTime() * 0.0003;
-    }
-  });
-
-  return (
-    <points ref={meshRef} geometry={geo}>
-      <pointsMaterial color={0x88bbaa} size={0.06} transparent opacity={0.5} sizeAttenuation depthWrite={false} />
-    </points>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Earth
-// ═══════════════════════════════════════════════════════════════════════════════
-
-function Earth({ autoRotate, rotationRef }: { autoRotate: boolean; rotationRef: React.MutableRefObject<number> }) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const { map, bumpMap } = useEarthTextures();
-
-  useFrame((_, delta) => {
-    if (meshRef.current && autoRotate) {
-      meshRef.current.rotation.y += delta * 0.04;
-      rotationRef.current = meshRef.current.rotation.y;
-    }
-  });
-
-  return (
-    <mesh ref={meshRef}>
-      <sphereGeometry args={[EARTH_RADIUS, 128, 128]} />
-      <meshStandardMaterial
-        map={map || undefined}
-        bumpMap={bumpMap || undefined}
-        bumpScale={0.04}
-        roughness={0.7}
-        metalness={0.2}
-        color={map ? 0x0a2a3a : 0x051520}
-        emissive={map ? 0x041820 : 0x020810}
-        emissiveIntensity={0.3}
-      />
-    </mesh>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Data Marker (small colored dot)
-// ═══════════════════════════════════════════════════════════════════════════════
-
-function DataMarker({
-  marker,
-  globeRotation,
-}: {
-  marker: MarkerData;
-  globeRotation: number;
-}) {
+function DataMarker({ marker, globeRotation }: { marker: MarkerData; globeRotation: number }) {
   const [hovered, setHovered] = useState(false);
   const color = MARKER_COLORS[marker.type];
   const adjLon = marker.lon - (globeRotation * 180 / Math.PI);
-  const pos = latLonToVector3(marker.lat, adjLon, EARTH_RADIUS + 0.015);
+  const pos = latLonToVector3(marker.lat, adjLon, EARTH_RADIUS + 0.012);
 
-  // visibility check — only show if on front hemisphere
   const camDir = new THREE.Vector3(0, 0, 1);
-  const dot = pos.clone().normalize().dot(camDir);
-  if (dot < 0.15) return null;
+  const visible = pos.clone().normalize().dot(camDir) > 0.1;
+  if (!visible) return null;
 
   return (
     <group position={pos}>
-      <Html
-        distanceFactor={10}
-        style={{ transform: 'translate(-50%, -50%)', pointerEvents: 'auto' }}
-      >
+      <Html distanceFactor={10} style={{ transform: 'translate(-50%, -50%)', pointerEvents: 'auto' }}>
         <div
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
           style={{
-            width: hovered ? '8px' : '5px',
-            height: hovered ? '8px' : '5px',
+            width: hovered ? '9px' : '5px',
+            height: hovered ? '9px' : '5px',
             borderRadius: '50%',
             background: color,
-            boxShadow: `0 0 ${hovered ? '10px' : '6px'} ${hovered ? '4px' : '2px'} ${color}`,
+            boxShadow: `0 0 ${hovered ? '10px 3px' : '6px 2px'} ${color}`,
             transition: 'all 0.15s ease',
             cursor: 'pointer',
           }}
@@ -317,12 +274,8 @@ function DataMarker({
       {hovered && marker.label && (
         <Html distanceFactor={10} style={{ pointerEvents: 'none' }}>
           <div className="bg-black/90 border border-white/10 rounded px-2 py-1 shadow-lg whitespace-nowrap">
-            <span className="font-mono text-[10px]" style={{ color }}>
-              {MARKER_ICONS[marker.type]} {marker.label}
-            </span>
-            {marker.detail && (
-              <span className="text-[9px] text-gray-400 ml-2">{marker.detail}</span>
-            )}
+            <span className="font-mono text-[10px]" style={{ color }}>{marker.label}</span>
+            {marker.detail && <span className="text-[9px] text-gray-400 ml-2">{marker.detail}</span>}
           </div>
         </Html>
       )}
@@ -330,133 +283,91 @@ function DataMarker({
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Data Layers
-// ═══════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════
+// Data fetching
+// ════════════════════════════════════════════════════════════════════════════════
 
 function useMarkers() {
-  const { data: flightData } = useSWR<{ flights: any[] }>('/api/flights?region=global&military=false', fetcher, {
-    refreshInterval: 10000,
-  });
+  const { data: flightData } = useSWR<{ flights: any[] }>('/api/flights?region=global&military=false', fetcher, { refreshInterval: 10000 });
   const { data: conflictData } = useSWR<{ conflicts: any[] }>('/api/conflicts', fetcher, { refreshInterval: 300000 });
   const { data: earthquakeData } = useSWR<{ earthquakes: any[] }>('/api/earthquakes', fetcher, { refreshInterval: 120000 });
   const { data: fireData } = useSWR<{ fires: any[] }>('/api/fires', fetcher, { refreshInterval: 300000 });
   const { data: shipData } = useSWR<{ ships: any[] }>('/api/ships', fetcher, { refreshInterval: 60000 });
 
-  const markers = useMemo<MarkerData[]>(() => {
+  return useMemo<MarkerData[]>(() => {
     const list: MarkerData[] = [];
-
-    // Aircraft (sample subset for performance)
-    const flights = flightData?.flights || [];
-    flights.slice(0, 80).forEach((f: any, i: number) => {
-      if (f.lat && f.lon) {
-        list.push({
-          id: `flight-${i}`,
-          lat: f.lat,
-          lon: f.lon,
-          type: 'aircraft',
-          label: f.callsign || 'Unknown',
-          detail: `${f.altitude?.toLocaleString() || '?'}ft`,
-        });
-      }
+    (flightData?.flights || []).slice(0, 80).forEach((f: any, i: number) => {
+      if (f.lat && f.lon) list.push({ id: `f-${i}`, lat: f.lat, lon: f.lon, type: 'aircraft', label: f.callsign || 'Unknown', detail: `${f.altitude?.toLocaleString() || '?'}ft` });
     });
-
-    // Conflicts
-    const conflicts = conflictData?.conflicts || [];
-    conflicts.forEach((c: any, i: number) => {
-      if (c.latitude && c.longitude) {
-        list.push({
-          id: `conflict-${i}`,
-          lat: c.latitude,
-          lon: c.longitude,
-          type: 'conflict',
-          label: c.country || 'Conflict Zone',
-          detail: c.event_type,
-        });
-      }
+    (conflictData?.conflicts || []).forEach((c: any, i: number) => {
+      if (c.latitude && c.longitude) list.push({ id: `c-${i}`, lat: c.latitude, lon: c.longitude, type: 'conflict', label: c.country || 'Conflict', detail: c.event_type });
     });
-
-    // Earthquakes
-    const quakes = earthquakeData?.earthquakes || [];
-    quakes.slice(0, 20).forEach((q: any, i: number) => {
-      if (q.lat && q.lon) {
-        list.push({
-          id: `quake-${i}`,
-          lat: q.lat,
-          lon: q.lon,
-          type: 'earthquake',
-          label: `M${q.magnitude}`,
-          detail: q.place,
-        });
-      }
+    (earthquakeData?.earthquakes || []).slice(0, 20).forEach((q: any, i: number) => {
+      if (q.lat && q.lon) list.push({ id: `q-${i}`, lat: q.lat, lon: q.lon, type: 'earthquake', label: `M${q.magnitude}`, detail: q.place });
     });
-
-    // Fires
-    const fires = fireData?.fires || [];
-    fires.slice(0, 30).forEach((f: any, i: number) => {
-      if (f.latitude && f.longitude) {
-        list.push({
-          id: `fire-${i}`,
-          lat: f.latitude,
-          lon: f.longitude,
-          type: 'fire',
-          label: 'Fire',
-          detail: `${(f.bright_ti4 || f.frp || '?')} MW`,
-        });
-      }
+    (fireData?.fires || []).slice(0, 30).forEach((f: any, i: number) => {
+      if (f.latitude && f.longitude) list.push({ id: `fire-${i}`, lat: f.latitude, lon: f.longitude, type: 'fire', label: 'Fire', detail: `${f.bright_ti4 || f.frp || '?'} MW` });
     });
-
-    // Ships
-    const ships = shipData?.ships || [];
-    ships.slice(0, 40).forEach((s: any, i: number) => {
-      if (s.lat && s.lon) {
-        list.push({
-          id: `ship-${i}`,
-          lat: s.lat,
-          lon: s.lon,
-          type: 'ship',
-          label: s.name || s.callsign || 'Vessel',
-          detail: s.type,
-        });
-      }
+    (shipData?.ships || []).slice(0, 40).forEach((s: any, i: number) => {
+      if (s.lat && s.lon) list.push({ id: `s-${i}`, lat: s.lat, lon: s.lon, type: 'ship', label: s.name || s.callsign || 'Vessel', detail: s.type });
     });
-
     return list;
   }, [flightData, conflictData, earthquakeData, fireData, shipData]);
-
-  return markers;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════
 // Scene
-// ═══════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════
 
-function Scene({ autoRotate, isFlat }: { autoRotate: boolean; isFlat: boolean }) {
+function Scene({ autoRotate, onRotationChange }: { autoRotate: boolean; onRotationChange?: (y: number) => void }) {
+  const earthRef = useRef<THREE.Group>(null);
   const rotationRef = useRef(0);
   const markers = useMarkers();
 
+  useFrame((_, delta) => {
+    if (earthRef.current && autoRotate) {
+      earthRef.current.rotation.y += delta * 0.04;
+      rotationRef.current = earthRef.current.rotation.y;
+      onRotationChange?.(rotationRef.current);
+    }
+  });
+
   return (
     <>
-      <ambientLight intensity={0.15} />
-      <directionalLight position={[5, 3, 5]} intensity={0.4} color="#aaddff" />
-      <pointLight position={[-5, -3, -5]} intensity={0.1} color="#4488aa" />
+      {/* Lighting — realistic sun + fill */}
+      <ambientLight intensity={0.12} color="#446688" />
+      <hemisphereLight args={['#e0f0ff', '#081018', 0.3]} />
+      <directionalLight
+        position={[8, 4, 5]}
+        intensity={1.8}
+        color="#fff8f0"
+        castShadow={false}
+      />
+      <directionalLight
+        position={[-4, -2, -3]}
+        intensity={0.2}
+        color="#4466aa"
+      />
 
-      <StarField />
-      <Atmosphere />
-      <Earth autoRotate={autoRotate} rotationRef={rotationRef} />
-      <Graticules rotationY={rotationRef.current} />
+      <Stars radius={200} depth={60} count={3000} factor={6} saturation={0} fade speed={0.5} />
 
-      {markers.map(m => (
-        <DataMarker key={m.id} marker={m} globeRotation={rotationRef.current} />
-      ))}
+      <group ref={earthRef}>
+        <EarthSurface />
+        <CloudLayer autoRotate={autoRotate} />
+        <Atmosphere />
+        <Graticules rotationY={rotationRef.current} />
+        {markers.map(m => (
+          <DataMarker key={m.id} marker={m} globeRotation={rotationRef.current} />
+        ))}
+      </group>
 
       <OrbitControls
         enablePan={false}
         enableZoom={true}
-        minDistance={isFlat ? 4 : 2.8}
-        maxDistance={isFlat ? 6 : 8}
+        minDistance={2.6}
+        maxDistance={9}
         autoRotate={false}
-        rotateSpeed={0.6}
+        rotateSpeed={0.5}
         zoomSpeed={0.8}
         enableDamping
         dampingFactor={0.05}
@@ -465,46 +376,40 @@ function Scene({ autoRotate, isFlat }: { autoRotate: boolean; isFlat: boolean })
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// UI Overlay
-// ═══════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════
+// Loading fallback
+// ════════════════════════════════════════════════════════════════════════════════
 
-const LEGEND_ITEMS: { type: MarkerType; label: string }[] = [
-  { type: 'aircraft', label: 'Air Traffic' },
-  { type: 'conflict', label: 'Conflict' },
-  { type: 'fire', label: 'Thermal/Fire' },
-  { type: 'ship', label: 'Maritime' },
-  { type: 'earthquake', label: 'Quake' },
-  { type: 'nuclear', label: 'Nuclear' },
-  { type: 'chokepoint', label: 'Chokepoint' },
-  { type: 'cyber', label: 'Cyber' },
-  { type: 'satellite', label: 'Space' },
-];
+function GlobeFallback() {
+  return (
+    <div className="w-full h-full bg-black flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-10 h-10 border-2 border-white/20 border-t-white/60 rounded-full animate-spin mx-auto mb-3" />
+        <div className="text-white/40 text-xs font-mono">Loading Globe...</div>
+      </div>
+    </div>
+  );
+}
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════
 // Main Component
-// ═══════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════
 
-export default function Globe3D({ autoRotate = true }: Globe3DProps) {
-  const [isFlat, setIsFlat] = useState(false);
+export default function Globe3D({ autoRotate = true, className }: Globe3DProps) {
   const [activeRegion, setActiveRegion] = useState('world');
   const [showLegend, setShowLegend] = useState(true);
 
   return (
-    <div className="relative w-full h-full bg-[#000000] overflow-hidden">
-      {/* 3D Canvas */}
-      <Canvas
-        camera={{
-          position: isFlat ? [0, 5, 0.1] : [0, 0, 5],
-          fov: isFlat ? 20 : 45,
-          near: 0.1,
-          far: 1000,
-        }}
-        gl={{ antialias: true, alpha: false }}
-        style={{ background: '#000000' }}
-      >
-        <Scene autoRotate={autoRotate && activeRegion === 'world'} isFlat={isFlat} />
-      </Canvas>
+    <div className={`relative w-full h-full bg-black overflow-hidden ${className || ''}`}>
+      <Suspense fallback={<GlobeFallback />}>
+        <Canvas
+          camera={{ position: [0, 0, 5], fov: 45, near: 0.1, far: 1000 }}
+          gl={{ antialias: true, alpha: false }}
+          style={{ background: '#000000' }}
+        >
+          <Scene autoRotate={autoRotate && activeRegion === 'world'} />
+        </Canvas>
+      </Suspense>
 
       {/* Region Tabs */}
       <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 z-10">
@@ -523,30 +428,13 @@ export default function Globe3D({ autoRotate = true }: Globe3DProps) {
         ))}
       </div>
 
-      {/* Zoom & Mode Controls */}
+      {/* Zoom Controls */}
       <div className="absolute top-16 left-3 flex flex-col gap-1 z-10">
-        <button
-          className="w-7 h-7 flex items-center justify-center rounded bg-black/60 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-all"
-          title="Zoom In"
-        >
+        <button className="w-7 h-7 flex items-center justify-center rounded bg-black/60 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-all" title="Zoom In">
           <Plus size={14} />
         </button>
-        <button
-          className="w-7 h-7 flex items-center justify-center rounded bg-black/60 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-all"
-          title="Zoom Out"
-        >
+        <button className="w-7 h-7 flex items-center justify-center rounded bg-black/60 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-all" title="Zoom Out">
           <Minus size={14} />
-        </button>
-        <button
-          onClick={() => setIsFlat(!isFlat)}
-          className={`w-7 h-7 flex items-center justify-center rounded border transition-all ${
-            isFlat
-              ? 'bg-[#00ff88]/15 text-[#00ff88] border-[#00ff88]/30'
-              : 'bg-black/60 text-white/50 border-white/10 hover:text-white hover:bg-white/10'
-          }`}
-          title={isFlat ? 'Globe Mode' : 'Flat Mode'}
-        >
-          {isFlat ? <Globe size={14} /> : <MapIcon size={14} />}
         </button>
       </div>
 
@@ -559,37 +447,23 @@ export default function Globe3D({ autoRotate = true }: Globe3DProps) {
       {showLegend && (
         <div className="absolute bottom-3 left-3 z-10">
           <div className="bg-black/70 border border-white/10 rounded-lg px-3 py-2">
-            <button
-              onClick={() => setShowLegend(!showLegend)}
-              className="flex items-center gap-1 mb-1.5 text-[9px] font-mono text-white/40 hover:text-white/70 transition-colors"
-            >
-              <ChevronDown size={10} />
-              DATA LAYERS
+            <button onClick={() => setShowLegend(false)} className="flex items-center gap-1 mb-1.5 text-[9px] font-mono text-white/40 hover:text-white/70 transition-colors">
+              <span className="text-[8px]">▼</span> DATA LAYERS
             </button>
-            <div className="flex flex-wrap gap-x-3 gap-y-1 max-w-[280px]">
-              {LEGEND_ITEMS.map(item => (
-                <div key={item.type} className="flex items-center gap-1.5">
-                  <div
-                    className="w-1.5 h-1.5 rounded-full"
-                    style={{
-                      background: MARKER_COLORS[item.type],
-                      boxShadow: `0 0 4px 1px ${MARKER_COLORS[item.type]}`,
-                    }}
-                  />
-                  <span className="text-[9px] font-mono text-white/50">{item.label}</span>
+            <div className="grid grid-cols-3 gap-x-3 gap-y-1">
+              {Object.entries(MARKER_COLORS).slice(0, 9).map(([type, color]) => (
+                <div key={type} className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: color, boxShadow: `0 0 4px 1px ${color}` }} />
+                  <span className="text-[9px] font-mono text-white/50 capitalize">{type}</span>
                 </div>
               ))}
             </div>
           </div>
         </div>
       )}
-
       {!showLegend && (
-        <button
-          onClick={() => setShowLegend(true)}
-          className="absolute bottom-3 left-3 z-10 px-2 py-1 rounded bg-black/60 border border-white/10 text-[9px] font-mono text-white/40 hover:text-white/70 transition-colors"
-        >
-          Show Layers
+        <button onClick={() => setShowLegend(true)} className="absolute bottom-3 left-3 z-10 px-2 py-1 rounded bg-black/60 border border-white/10 text-[9px] font-mono text-white/40 hover:text-white/70 transition-colors">
+          Layers
         </button>
       )}
     </div>

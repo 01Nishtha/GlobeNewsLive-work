@@ -130,46 +130,16 @@ export default function LiveNewsTicker({
 
   return (
     <div ref={containerRef} className="relative">
-      {/* Description Popup - shows when paused/hovered */}
+      {/* Compact Description Tooltip */}
       {isPaused && hoveredItem && (
-        <div className="absolute left-0 right-0 bottom-full z-50 mb-1">
-          <div className="mx-4 bg-[#0f1218]/98 border border-border-default rounded-lg shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
-            {/* Popup Header */}
-            <div className="flex items-center gap-2 px-3 py-2 border-b border-border-subtle bg-white/5">
-              <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold border ${getUrgencyColor(hoveredItem.urgency)}`}>
-                {getUrgencyLabel(hoveredItem.urgency)}
-              </span>
-              <span className="text-[10px] font-mono text-accent-green">
-                {hoveredItem.source}
-              </span>
-              {hoveredItem.category && (
-                <span className="text-[9px] text-text-dim uppercase">
-                  {hoveredItem.category}
-                </span>
-              )}
-              {hoveredItem.link && (
-                <a
-                  href={hoveredItem.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="ml-auto flex items-center gap-1 text-[9px] text-text-dim hover:text-white transition-colors"
-                >
-                  <ExternalLink size={10} />
-                  Read
-                </a>
-              )}
-            </div>
-            {/* Popup Content */}
-            <div className="px-3 py-2.5">
-              <h4 className="text-[11px] font-semibold text-white mb-1 leading-relaxed">
-                {hoveredItem.title}
-              </h4>
-              {hoveredItem.description && (
-                <p className="text-[10px] text-text-dim leading-relaxed">
-                  {hoveredItem.description}
-                </p>
-              )}
-            </div>
+        <div className="absolute left-4 right-4 bottom-full z-50 mb-1 pointer-events-none">
+          <div className="inline-flex items-start gap-2 bg-[#0f1218]/95 border border-border-subtle rounded px-2.5 py-1.5 shadow-lg max-w-full">
+            <span className={`flex-shrink-0 mt-0.5 text-[8px] px-1 py-0.5 rounded font-mono font-bold border ${getUrgencyColor(hoveredItem.urgency)}`}>
+              {getUrgencyLabel(hoveredItem.urgency)}
+            </span>
+            <p className="text-[10px] text-text-dim leading-snug truncate">
+              {hoveredItem.description || hoveredItem.title}
+            </p>
           </div>
         </div>
       )}

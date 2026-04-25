@@ -40,8 +40,6 @@ import MultiStreamLayout from '@/components/MultiStreamLayout';
 import OfflineIndicator from '@/components/OfflineIndicator';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 import SignalBanner from '@/components/SignalBanner';
-import GlobalSituationBar from '@/components/GlobalSituationBar';
-import AIChatbot from '@/components/AIChatbot';
 import TimeRangeSelector from '@/components/TimeRangeSelector';
 import RegionSelector, { REGIONS } from '@/components/RegionSelector';
 import CategoryFilterBar from '@/components/CategoryFilterBar';
@@ -443,7 +441,7 @@ export default function Dashboard() {
 
       {/* Global Situation Bar */}
       <div className="hidden lg:block">
-        <GlobalSituationBar />
+        {/* GlobalSituationBar removed */}
       </div>
 
       <Header 
@@ -533,9 +531,6 @@ export default function Dashboard() {
         <LiveNewsTicker signals={signals} />
         <StatsBar activeConflicts={ACTIVE_CONFLICTS.length} militaryAlerts={militaryCount} highSeverity={highCount} criticalSeverity={criticalCount} timeFilter={timeFilter} onTimeFilterChange={setTimeFilter} />
       </div>
-
-      {/* AI Chatbot */}
-      <AIChatbot />
 
       {/* PWA Install Prompt */}
       <PWAInstallPrompt />

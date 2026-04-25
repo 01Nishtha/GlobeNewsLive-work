@@ -1003,6 +1003,32 @@ export async function GET(request: Request) {
 
     cache = { signals, timestamp: Date.now(), sources: { success, failed } };
 
+    // Index signals to vector DB for AI chatbot (async, don't block response)
+    try {
+      const signalsForIndexing = signals.slice(0, 50).map((s: any) => ({
+        id: `signal_${s.timestamp.getTime()}_${Math.random().toString(36).substr(2, 9)}`,
+        title: s.title,
+        content: s.description || s.title,
+        severity: s.severity,
+        category: s.category,
+        region: s.region || "global",
+        source: s.source,
+        timestamp: s.timestamp.getTime(),
+        url: s.sourceUrl,
+      }));
+
+      // Fire and forget - don't await
+      fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3400"}/api/vector/ingest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signals: signalsForIndexing }),
+      }).catch(() => {
+        // Silently fail - vector indexing is best effort
+      });
+    } catch (e) {
+      // Ignore indexing errors
+    }
+
     let filteredSignals = signals;
     if (filter === "iran") {
       filteredSignals = signals.filter((s: any) => s.iranRelevance > 0);

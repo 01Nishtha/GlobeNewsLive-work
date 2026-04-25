@@ -155,10 +155,13 @@ export default function SignalFeed({ signals, loading, onSignalClick }: SignalFe
   const [containerHeight, setContainerHeight] = useState(600);
 
   const [isHovered, setIsHovered] = useState(false);
-  const autoScrollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const animationRef = useRef<number | null>(null);
+  const scrollPositionRef = useRef(0);
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    setScrollTop(e.currentTarget.scrollTop);
+    const newScrollTop = e.currentTarget.scrollTop;
+    setScrollTop(newScrollTop);
+    scrollPositionRef.current = newScrollTop;
   }, []);
 
   useEffect(() => {
@@ -174,26 +177,27 @@ export default function SignalFeed({ signals, loading, onSignalClick }: SignalFe
   // Track new signals
   useEffect(() => {
     if (signals.length === 0) return;
-    
+
     const currentIds = new Set(signals.map(s => s.id));
     const newIds = new Set<string>();
-    
+
     currentIds.forEach(id => {
       if (!prevSignalIds.has(id)) {
         newIds.add(id);
       }
     });
-    
+
     if (newIds.size > 0 && prevSignalIds.size > 0) {
       setNewSignalIds(newIds);
       setTimeout(() => setNewSignalIds(new Set()), 10000);
-      
+
       const newCritical = signals.filter(s => newIds.has(s.id) && s.severity === 'CRITICAL');
       if (newCritical.length > 0 && listRef.current) {
         listRef.current.scrollTop = 0;
+        scrollPositionRef.current = 0;
       }
     }
-    
+
     setPrevSignalIds(currentIds);
   }, [signals]);
 
@@ -205,35 +209,56 @@ export default function SignalFeed({ signals, loading, onSignalClick }: SignalFe
     return true;
   });
 
-  // Auto-scroll effect
+  // Auto-scroll effect using requestAnimationFrame for smooth 60fps scrolling
   useEffect(() => {
     if (!listRef.current || filteredSignals.length === 0) return;
 
     const scrollContainer = listRef.current;
     const totalHeight = filteredSignals.length * ITEM_HEIGHT;
+    const SCROLL_SPEED = 50; // pixels per second (50px/s = ~0.83px per frame at 60fps)
+    const FRAME_TIME = 1000 / 60; // ~16.67ms per frame
+    const pixelsPerFrame = SCROLL_SPEED / 60;
 
-    const startAutoScroll = () => {
-      if (autoScrollRef.current) clearInterval(autoScrollRef.current);
-      
-      autoScrollRef.current = setInterval(() => {
-        if (!scrollContainer || isHovered) return;
-        
-        const currentScroll = scrollContainer.scrollTop;
-        const maxScroll = totalHeight - containerHeight;
-        
-        if (currentScroll >= maxScroll) {
-          // Reset to top when reaching bottom
-          scrollContainer.scrollTop = 0;
-        } else {
-          scrollContainer.scrollTop = currentScroll + 1; // Slow scroll
-        }
-      }, 50); // 50ms interval for smooth slow scroll
+    let lastTimestamp: number | null = null;
+
+    const animate = (timestamp: number) => {
+      if (isHovered) {
+        lastTimestamp = null;
+        animationRef.current = requestAnimationFrame(animate);
+        return;
+      }
+
+      if (lastTimestamp === null) {
+        lastTimestamp = timestamp;
+      }
+
+      const deltaTime = timestamp - lastTimestamp;
+      lastTimestamp = timestamp;
+
+      // Calculate scroll increment based on actual elapsed time for consistent speed
+      const scrollIncrement = (SCROLL_SPEED * deltaTime) / 1000;
+      let nextScroll = scrollPositionRef.current + scrollIncrement;
+      const maxScroll = totalHeight - containerHeight;
+
+      if (nextScroll >= maxScroll && maxScroll > 0) {
+        // Seamless loop: reset to top
+        nextScroll = 0;
+        scrollPositionRef.current = 0;
+        scrollContainer.scrollTop = 0;
+      } else {
+        scrollPositionRef.current = nextScroll;
+        scrollContainer.scrollTop = nextScroll;
+      }
+
+      animationRef.current = requestAnimationFrame(animate);
     };
 
-    startAutoScroll();
+    animationRef.current = requestAnimationFrame(animate);
 
     return () => {
-      if (autoScrollRef.current) clearInterval(autoScrollRef.current);
+      if (animationRef.current !== null) {
+        cancelAnimationFrame(animationRef.current);
+      }
     };
   }, [filteredSignals.length, containerHeight, isHovered]);
 

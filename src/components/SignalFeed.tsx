@@ -154,6 +154,9 @@ export default function SignalFeed({ signals, loading, onSignalClick }: SignalFe
   const [scrollTop, setScrollTop] = useState(0);
   const [containerHeight, setContainerHeight] = useState(600);
 
+  const [isHovered, setIsHovered] = useState(false);
+  const autoScrollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     setScrollTop(e.currentTarget.scrollTop);
   }, []);
@@ -201,6 +204,38 @@ export default function SignalFeed({ signals, loading, onSignalClick }: SignalFe
     if (filter === 'critical') return s.severity === 'CRITICAL' || s.severity === 'HIGH';
     return true;
   });
+
+  // Auto-scroll effect
+  useEffect(() => {
+    if (!listRef.current || filteredSignals.length === 0) return;
+
+    const scrollContainer = listRef.current;
+    const totalHeight = filteredSignals.length * ITEM_HEIGHT;
+
+    const startAutoScroll = () => {
+      if (autoScrollRef.current) clearInterval(autoScrollRef.current);
+      
+      autoScrollRef.current = setInterval(() => {
+        if (!scrollContainer || isHovered) return;
+        
+        const currentScroll = scrollContainer.scrollTop;
+        const maxScroll = totalHeight - containerHeight;
+        
+        if (currentScroll >= maxScroll) {
+          // Reset to top when reaching bottom
+          scrollContainer.scrollTop = 0;
+        } else {
+          scrollContainer.scrollTop = currentScroll + 1; // Slow scroll
+        }
+      }, 50); // 50ms interval for smooth slow scroll
+    };
+
+    startAutoScroll();
+
+    return () => {
+      if (autoScrollRef.current) clearInterval(autoScrollRef.current);
+    };
+  }, [filteredSignals.length, containerHeight, isHovered]);
 
   // Counts
   const criticalCount = signals.filter(s => s.severity === 'CRITICAL').length;
@@ -280,6 +315,8 @@ export default function SignalFeed({ signals, loading, onSignalClick }: SignalFe
         id="signal-feed"
         className="flex-1 overflow-y-auto px-2" 
         onScroll={handleScroll}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         style={{ willChange: 'transform' }}
       >
         {loading && signals.length === 0 ? (

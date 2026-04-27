@@ -45,7 +45,7 @@
 - **🔔 Push-style badges** — Critical count on mobile nav
 - **👆 Touch-optimized** — Larger tap targets, swipeable panels
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |-------|------------|

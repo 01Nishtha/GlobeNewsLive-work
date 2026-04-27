@@ -179,7 +179,7 @@ const LAYOUT_PRESETS: Record<
   "intelligence-analyst": {
     label: "Intelligence Analyst",
     emoji: "🕵️",
-    desc: "Map + Videos + Risk + Timeline + Panels",
+    desc: "Map + Videos + Risk + Timeline + Flight Radar + Panels",
     widgets: [
       "signal-feed",
       "world-map",
@@ -189,6 +189,7 @@ const LAYOUT_PRESETS: Record<
       "ai-insights",
       "situation-brief",
       "attack-timeline",
+      "flight-radar",
     ],
     layout: [
       { i: "signal-feed", x: 0, y: 0, w: 1, h: 10, minW: 1, maxW: 1, minH: 6 },
@@ -243,6 +244,16 @@ const LAYOUT_PRESETS: Record<
         minW: 1,
         maxW: 1,
         minH: 3,
+      },
+      {
+        i: "flight-radar",
+        x: 1,
+        y: 16,
+        w: 1,
+        h: 6,
+        minW: 1,
+        maxW: 1,
+        minH: 4,
       },
     ],
   },

@@ -24,6 +24,7 @@ import AttackTimeline from '@/components/AttackTimeline';
 import MultiPredictions from '@/components/MultiPredictions';
 import NewsChannels from '@/components/NewsChannels';
 import FlightRadar from '@/components/FlightRadar';
+import FlightTracker from '@/components/FlightTracker';
 import SearchBar from '@/components/SearchBar';
 import CyberFeed from '@/components/CyberFeed';
 import HotspotStreams from '@/components/HotspotStreams';
@@ -46,6 +47,8 @@ import CategoryFilterBar from '@/components/CategoryFilterBar';
 import MapControls from '@/components/MapControls';
 import MapLegend from '@/components/MapLegend';
 import LiveNewsTicker from '@/components/LiveNewsTicker';
+import HelpPin from '@/components/HelpPin';
+import FullscreenToggle from '@/components/FullscreenToggle';
 import EnhancedLayerPanel from '@/components/EnhancedLayerPanel';
 import { Signal, MarketData, PredictionMarket, ThreatLevel } from '@/types';
 import { getThreatLevelFromSignals } from '@/lib/classify';
@@ -409,6 +412,7 @@ export default function Dashboard() {
             onPinToTop={() => setMapPinned(!mapPinned)}
             isPinned={mapPinned}
           />
+          <FullscreenToggle />
           <button
             onClick={() => setCommandPaletteOpen(true)}
             className="flex items-center gap-2 px-3 py-1 rounded text-[10px] font-mono text-text-dim hover:text-white border border-border-subtle hover:border-accent-green/30 transition-colors"
@@ -504,6 +508,7 @@ export default function Dashboard() {
           <div className="h-full overflow-y-auto p-2 space-y-2">
             <DefconIndicator />
             <MilitaryTracker />
+            <FlightTracker />
             <TrackingPanel earthquakes={earthquakes} />
             <TwitterFeed />
             <div className="glass-panel">
@@ -534,6 +539,9 @@ export default function Dashboard() {
 
       {/* PWA Install Prompt */}
       <PWAInstallPrompt />
+
+      {/* Help Pin - Floating help button */}
+      <HelpPin />
     </div>
   );
 }
